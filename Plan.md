@@ -85,6 +85,16 @@ Trigger: new auth user → profile row. Trigger: new group → owner membership 
 |---|---|---|---|---|
 | Code review (WP9) | reviewer | ses_e3f67592dffeqcONpsl9Ksb0Ui | background | Completed; findings fixed & integrated |
 | Security review (WP9) | security-reviewer | ses_e3f67592cffeIGNMuZxa03Yf8x | background | Completed; findings fixed & integrated |
+| GitHub release (WP10) | release-manager | ses_e3e2b0d3b6f9e1f45c6b28a0f | background | Integrated — v0.1.0 pushed, CI green (evidence below) |
+
+## Release record (WP10 — user-authorized)
+
+- Repo: https://github.com/Shuash11/study-group-hub (public, default branch `main`)
+- Release commit `1c362a9` = local HEAD = origin/main (verified via ls-remote); tag `v0.1.0` pushed; GitHub release created and marked Latest
+- Version bump 0.0.0 → 0.1.0 (package.json + lockfile); `.github/workflows/ci.yml` (lint + build) and `.github/workflows/release.yml` added by release-manager
+- Workflow runs: CI@main 42653590153 ✅ · CI@v0.1.0 42654840100 ✅ · Release@v0.1.0 42654840258 ✅ · CI@64fcf29 42657824208 ✅ (stray-file cleanup)
+- No deployment to Vercel/Netlify (per user instruction — deploy is a future user action)
+- Post-release cleanup by Lead: stray empty `New Text Document.txt` untracked (local file kept), commit `64fcf29`, CI green
 
 Direct lead execution for increments A–D; no other background assignments.
 
@@ -149,3 +159,6 @@ Both reviews read pre-fix code; migrations 0003/0004 and the client updates reso
   hardening) pushed. Client updated: typed Database + strict TS, RPC-based join, public group
   browsing, error/empty-state fixes. E2E script expanded to 24 checks — ALL PASSED against the
   live database. Lint 0 errors; production build clean. Findings disposition table above.
+- 2026-11-10: WP10 release done (user-authorized). GitHub repo created with CI automation,
+  main + v0.1.0 pushed, all workflow runs green — see Release record above. Vercel deploy
+  deliberately NOT performed (user instruction). Project complete.
