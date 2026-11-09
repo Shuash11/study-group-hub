@@ -85,7 +85,8 @@ Trigger: new auth user → profile row. Trigger: new group → owner membership 
 |---|---|---|---|---|
 | Code review (WP9) | reviewer | ses_e3f67592dffeqcONpsl9Ksb0Ui | background | Completed; findings fixed & integrated |
 | Security review (WP9) | security-reviewer | ses_e3f67592cffeIGNMuZxa03Yf8x | background | Completed; findings fixed & integrated |
-| GitHub release (WP10) | release-manager | ses_e3e2b0d3b6f9e1f45c6b28a0f | background | Integrated — v0.1.0 pushed, CI green (evidence below) |
+| GitHub release (WP10) | release-manager | ses_e3f1bb5f1ffeyS4iOweM9fo6Ve | background | Integrated — v0.1.0 pushed, CI green (evidence below) |
+| UX/UI design review (WP9) | ux-ui-designer | ses_e3d645531ffelt7uRCpih3sJU8 | background | Completed; H1/H2/M1/M2/L1–L5, P1–P3 fixed & deployed |
 
 ## Release record (WP10 — user-authorized)
 
@@ -167,3 +168,12 @@ Both reviews read pre-fix code; migrations 0003/0004 and the client updates reso
   repo Actions secrets injected at build time — without them the bundle would have
   crashed at runtime despite CI passing. Verified: homepage 200, SPA fallback serves
   the app on deep links, deployed bundle contains the Supabase wiring.
+- 2026-11-10: UX/UI design review integrated (verdict: "solid B+/A−, ship after the two
+  Highs"). Fixed & deployed: H1 visitor entry (signed-out `/` → /groups + browse link on
+  auth card), H2 WCAG AA RSVP colors (amber/emerald 700), M1 return-path context
+  (`state.from` consumed), M2 40px touch targets on frequent controls, L1 misleading
+  retry removed, L2 past-session contrast, L3 heading skip, L4 session-form reset on open,
+  L5 sr feedback (role=status/alert), P1 body via theme vars, P2 dead assets deleted,
+  P3 modal aria-labelledby. Deferred by design: P4–P7 (pagination, skip link, password
+  recovery — password recovery is a pre-launch item alongside re-enabling email
+  confirmation). Deploy run 42722432072 green; live URL re-verified HTTP 200.
