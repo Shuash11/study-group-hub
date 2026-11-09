@@ -30,6 +30,10 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: client
+        env:
+          # Baked into the bundle at build time; public-by-design values (RLS protects data).
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - name: SPA fallback (serve index.html on deep links)
         run: cp dist/index.html dist/404.html
         working-directory: client
