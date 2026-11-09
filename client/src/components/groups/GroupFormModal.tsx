@@ -4,6 +4,7 @@ import { Button } from '../ui/Button'
 import { Input, Textarea } from '../ui/Form'
 import { ErrorBanner } from '../ui/Feedback'
 import { useAuth } from '../../context/AuthContext'
+import { friendlyDbError } from '../../lib/errors'
 import { createGroup, updateGroup, type GroupInput } from '../../services/groups'
 import type { Group } from '../../lib/database.types'
 
@@ -14,6 +15,8 @@ interface GroupFormModalProps {
   onSaved: (group: Group) => void
   /** Provide an existing group to run the modal in edit mode. */
   initial?: Group | null
+  /** Current roster size — the limit can never drop below it. */
+  currentMemberCount?: number
 }
 
 function validate(values: { name: string; courseCode: string; maxMembers: string }) {
@@ -31,7 +34,13 @@ function validate(values: { name: string; courseCode: string; maxMembers: string
 }
 
 /** Create and edit modal for groups (edit mode when `initial` is provided). */
-export function GroupFormModal({ open, onClose, onSaved, initial }: GroupFormModalProps) {
+export function GroupFormModal({
+  open,
+  onClose,
+  onSaved,
+  initial,
+  currentMemberCount,
+}: GroupFormModalProps) {
   const editing = Boolean(initial)
   const { user } = useAuth()
   const [name, setName] = useState('')
@@ -56,6 +65,16 @@ export function GroupFormModal({ open, onClose, onSaved, initial }: GroupFormMod
     e.preventDefault()
     setFormError(null)
     const nextErrors = validate({ name, courseCode, maxMembers })
+    // L4: an owner cannot shrink the limit below the existing roster.
+    const max = Number(maxMembers)
+    if (
+      editing &&
+      !nextErrors.maxMembers &&
+      currentMemberCount !== undefined &&
+      max < currentMemberCount
+    ) {
+      nextErrors.maxMembers = `This group already has ${currentMemberCount} members — set the limit to ${currentMemberCount} or more.`
+    }
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -63,7 +82,7 @@ export function GroupFormModal({ open, onClose, onSaved, initial }: GroupFormMod
       name: name.trim(),
       course_code: courseCode.trim().toUpperCase(),
       description: description.trim() || null,
-      max_members: Number(maxMembers),
+      max_members: max,
     }
 
     setSaving(true)
@@ -78,9 +97,7 @@ export function GroupFormModal({ open, onClose, onSaved, initial }: GroupFormMod
       }
       onClose()
     } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-      )
+      setFormError(friendlyDbError(err))
     } finally {
       setSaving(false)
     }

@@ -80,13 +80,11 @@ export default function HomePage() {
         </div>
       </div>
 
-      {error && (
-        <div className="mt-5">
+      {error ? (
+        <div className="mt-6">
           <ErrorBanner message={error} onRetry={() => setReloadKey((k) => k + 1)} />
         </div>
-      )}
-
-      {loading && !error ? (
+      ) : loading ? (
         <div className="mt-6 space-y-6">
           <SkeletonList rows={2} />
           <SkeletonList rows={3} />
@@ -213,9 +211,9 @@ export default function HomePage() {
       <JoinGroupModal
         open={showJoin}
         onClose={() => setShowJoin(false)}
-        onJoined={(group) => {
+        onJoined={(groupId) => {
           setShowJoin(false)
-          navigate(`/groups/${group.id}`)
+          navigate(`/groups/${groupId}`)
         }}
       />
     </div>

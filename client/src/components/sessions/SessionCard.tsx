@@ -20,12 +20,9 @@ const RSVP_OPTIONS: Array<{ value: RsvpStatus; label: string; activeClass: strin
 /** One study session with RSVP toggles (and delete for its creator). */
 export function SessionCard({
   session,
-  groupName,
   onChanged,
 }: {
   session: SessionWithRsvp
-  /** Group name shown on the dashboard view. */
-  groupName?: string
   onChanged: () => void
 }) {
   const { user } = useAuth()
@@ -90,7 +87,6 @@ export function SessionCard({
             ) : (
               <Badge variant="success">Upcoming</Badge>
             )}
-            {groupName && <Badge variant="brand">{groupName}</Badge>}
           </div>
           <p className="mt-1 text-sm text-slate-600">
             {formatDateTime(session.starts_at)} · {formatDuration(session.duration_minutes)}

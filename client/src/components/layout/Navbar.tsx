@@ -13,7 +13,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 export function Navbar() {
-  const { profile } = useAuth()
+  const { session, profile } = useAuth()
   const navigate = useNavigate()
   const [signingOut, setSigningOut] = useState(false)
 
@@ -52,27 +52,40 @@ export function Navbar() {
             <UsersIcon size={18} />
             <span className="hidden md:inline">Groups</span>
           </NavLink>
-          <NavLink to="/profile" className={linkClass} aria-label="Profile">
-            <UserIcon size={18} />
-            <span className="hidden md:inline">Profile</span>
-          </NavLink>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            aria-label="Sign out"
-            className="ml-1 flex min-h-[40px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-60 motion-reduce:transition-none"
-          >
-            <LogOutIcon size={18} />
-            <span className="hidden md:inline">Sign out</span>
-          </button>
-          <span
-            aria-hidden="true"
-            title={profile?.full_name ?? undefined}
-            className="ml-1 hidden h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800 sm:flex"
-          >
-            {initials(profile?.full_name)}
-          </span>
+          {session && (
+            <NavLink to="/profile" className={linkClass} aria-label="Profile">
+              <UserIcon size={18} />
+              <span className="hidden md:inline">Profile</span>
+            </NavLink>
+          )}
+          {session ? (
+            <>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                aria-label="Sign out"
+                className="ml-1 flex min-h-[40px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-60 motion-reduce:transition-none"
+              >
+                <LogOutIcon size={18} />
+                <span className="hidden md:inline">Sign out</span>
+              </button>
+              <span
+                aria-hidden="true"
+                title={profile?.full_name ?? undefined}
+                className="ml-1 hidden h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800 sm:flex"
+              >
+                {initials(profile?.full_name)}
+              </span>
+            </>
+          ) : (
+            <NavLink
+              to="/login"
+              className="ml-1 inline-flex min-h-[40px] items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 motion-reduce:transition-none"
+            >
+              Sign in
+            </NavLink>
+          )}
         </nav>
       </div>
     </header>

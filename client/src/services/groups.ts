@@ -1,9 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
-import { generateJoinCode, normalizeJoinCode } from '../lib/format'
 import type {
   Group,
   GroupRole,
-  GroupWithCount,
   GroupWithRole,
   MemberWithProfile,
 } from '../lib/database.types'
@@ -46,23 +44,25 @@ export async function listMyGroups(userId: string): Promise<GroupWithRole[]> {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-/** All groups, newest first, with live member counts. `search` filters by name or course code. */
-export async function listGroups(search = ''): Promise<GroupWithCount[]> {
+/**
+ * All groups, newest first. Member counts are aggregate numbers maintained by a
+ * trigger — safe for public browsing without exposing any personal data.
+ * `search` filters by name or course code (reserved PostgREST characters stripped).
+ */
+export async function listGroups(search = ''): Promise<Group[]> {
   let query = supabase
     .from('groups')
-    .select('*, group_members(count)')
+    .select('*')
     .order('created_at', { ascending: false })
 
-  const s = search.replace(/[%(),]/g, ' ').trim()
+  const s = search.replace(/[%(),"\\]/g, ' ').trim()
   if (s) {
     query = query.or(`name.ilike.%${s}%,course_code.ilike.%${s}%`)
   }
 
   const { data, error } = await query
   if (error) throw error
-
-  const rows = data as unknown as Array<Group & { group_members?: Array<{ count: number }> }>
-  return rows.map((g) => ({ ...g, member_count: g.group_members?.[0]?.count ?? 0 }))
+  return (data ?? []) as unknown as Group[]
 }
 
 export async function getGroup(groupId: string): Promise<Group | null> {
@@ -102,19 +102,32 @@ export async function getMyMembership(
   return (data?.role as GroupRole) ?? null
 }
 
-/** Creates a group; the DB trigger adds the creator as its owner member. */
+/**
+ * The group's invite code. Only readable by group members (RLS on group_invites),
+ * so the UI can show the "share this code" chip without leaking codes to visitors.
+ */
+export async function getInviteCode(groupId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('group_invites')
+    .select('code')
+    .eq('group_id', groupId)
+    .maybeSingle()
+  if (error) throw error
+  return data?.code ?? null
+}
+
+/**
+ * Creates a group; the DB trigger adds the creator as owner and mints a unique
+ * 6-character invite code (stored in the protected group_invites table).
+ */
 export async function createGroup(userId: string, input: GroupInput): Promise<Group> {
-  // Retry on the (rare) join_code unique violation.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const { data, error } = await supabase
-      .from('groups')
-      .insert({ ...input, owner_id: userId, join_code: generateJoinCode() })
-      .select()
-      .single()
-    if (!error) return data as Group
-    if (error.code !== '23505') throw error
-  }
-  throw new Error('Could not generate a unique invite code. Please try again.')
+  const { data, error } = await supabase
+    .from('groups')
+    .insert({ ...input, owner_id: userId })
+    .select()
+    .single()
+  if (error) throw error
+  return data as unknown as Group
 }
 
 export async function updateGroup(groupId: string, input: GroupInput): Promise<void> {
@@ -138,30 +151,18 @@ export async function leaveGroup(groupId: string, userId: string): Promise<void>
   if (error) throw error
 }
 
-export async function findGroupByCode(code: string): Promise<Group | null> {
-  const { data, error } = await supabase
-    .from('groups')
-    .select('*')
-    .eq('join_code', normalizeJoinCode(code))
-    .maybeSingle()
-  if (error) throw error
-  return data
-}
-
-/** Joins a group after checking capacity. RLS enforces self-join as 'member'. */
-export async function joinGroup(userId: string, group: Group): Promise<void> {
-  const { count, error: countError } = await supabase
-    .from('group_members')
-    .select('*', { count: 'exact', head: true })
-    .eq('group_id', group.id)
-  if (countError) throw countError
-  if ((count ?? 0) >= group.max_members) throw new GroupFullError()
-
-  const { error } = await supabase
-    .from('group_members')
-    .insert({ group_id: group.id, user_id: userId, role: 'member' })
+/**
+ * Joins a group by invite code through the join_group_by_code RPC, which is the
+ * only way to become a member: it validates the code, blocks duplicates, and
+ * enforces capacity atomically under a row lock. Returns the joined group's id.
+ */
+export async function joinGroupByCode(code: string): Promise<string> {
+  const { data, error } = await supabase.rpc('join_group_by_code', { p_code: code })
   if (error) {
-    if (error.code === '23505') throw new AlreadyMemberError()
-    throw error
+    const message = error.message
+    if (message.includes('already a member')) throw new AlreadyMemberError()
+    if (message.includes('full')) throw new GroupFullError()
+    throw new Error(message)
   }
+  return data
 }

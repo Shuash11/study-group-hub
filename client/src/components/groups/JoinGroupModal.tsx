@@ -1,29 +1,35 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Form'
 import { ErrorBanner } from '../ui/Feedback'
-import { useAuth } from '../../context/AuthContext'
-import {
-  AlreadyMemberError,
-  GroupFullError,
-  findGroupByCode,
-  joinGroup,
-} from '../../services/groups'
-import type { Group } from '../../lib/database.types'
+import { joinGroupByCode } from '../../services/groups'
 
 interface JoinGroupModalProps {
   open: boolean
   onClose: () => void
-  onJoined: (group: Group) => void
+  onJoined: (groupId: string) => void
 }
 
+/**
+ * Joining goes through the join_group_by_code RPC — the only membership
+ * path the database allows — so code validation and capacity are enforced
+ * server-side, not in this form.
+ */
 export function JoinGroupModal({ open, onClose, onJoined }: JoinGroupModalProps) {
-  const { user } = useAuth()
   const [code, setCode] = useState('')
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
+
+  // Fresh state on every open so a previous failure doesn't linger (L3).
+  useEffect(() => {
+    if (open) {
+      setCode('')
+      setFieldError(null)
+      setFormError(null)
+    }
+  }, [open])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -34,29 +40,16 @@ export function JoinGroupModal({ open, onClose, onJoined }: JoinGroupModalProps)
       return
     }
     setFieldError(null)
-    if (!user) {
-      setFormError('You must be signed in to join a group.')
-      return
-    }
 
     setJoining(true)
     try {
-      const group = await findGroupByCode(normalized)
-      if (!group) {
-        setFormError('No group found with that code. Double-check and try again.')
-        return
-      }
-      await joinGroup(user.id, group)
-      setCode('')
-      onJoined(group)
+      const groupId = await joinGroupByCode(normalized)
+      onJoined(groupId)
       onClose()
     } catch (err) {
-      if (err instanceof GroupFullError) setFormError(err.message)
-      else if (err instanceof AlreadyMemberError) setFormError(err.message)
-      else
-        setFormError(
-          err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-        )
+      setFormError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      )
     } finally {
       setJoining(false)
     }

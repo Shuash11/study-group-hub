@@ -63,7 +63,7 @@ Trigger: new auth user → profile row. Trigger: new group → owner membership 
 | WP6 | Home dashboard (my groups, upcoming sessions) | Lead / Implementer | WP5 | Done |
 | WP7 | Stretch: notes, activity feed, dark mode | Lead | WP6 | Deferred (optional) |
 | WP8 | Polish, responsive, seed demo data, deploy to public URL | Lead | WP6 | Demo data done; deploy needs user's Vercel/Netlify account |
-| WP9 | Verification: functional flows, RLS checks, security review | Lead + QA + Security Reviewer | WP8 | E2E passed; reviews running |
+| WP9 | Verification: functional flows, RLS checks, security review | Lead + QA + Security Reviewer | WP8 | Done (24/24 E2E; reviews integrated) |
 
 ## Security requirements (mandatory triggers apply)
 
@@ -83,10 +83,44 @@ Trigger: new auth user → profile row. Trigger: new group → owner membership 
 
 | Task | Specialist | Session ID | Mode | Status |
 |---|---|---|---|---|
-| Code review (WP9) | reviewer | ses_e3f67592dffeqcONpsl9Ksb0Ui | background | Running |
-| Security review (WP9) | security-reviewer | ses_e3f67592cffeIGNMuZxa03Yf8x | background | Running |
+| Code review (WP9) | reviewer | ses_e3f67592dffeqcONpsl9Ksb0Ui | background | Completed; findings fixed & integrated |
+| Security review (WP9) | security-reviewer | ses_e3f67592cffeIGNMuZxa03Yf8x | background | Completed; findings fixed & integrated |
 
 Direct lead execution for increments A–D; no other background assignments.
+
+## Review findings disposition (WP9)
+
+Both reviews read pre-fix code; migrations 0003/0004 and the client updates resolve them.
+
+| Finding | Disposition |
+|---|---|
+| H1 invite codes public + unguarded self-join | **Fixed** — 0003: codes in member-only `group_invites`, join only via `join_group_by_code` RPC; direct insert policy dropped |
+| H2 no visitor role | **Fixed** — `/groups` and `/groups/:id` are public (browse/search); personal areas stay auth-gated |
+| M1 capacity client-only | **Fixed** — RPC enforces `max_members` atomically (`SELECT … FOR UPDATE`); E2E-verified |
+| M2 world-readable profiles/rosters | **Fixed** — profiles authenticated-only; roster member-only; public users get trigger-maintained `member_count` aggregate |
+| M3 strict TS off, untyped client | **Fixed** — `strict: true`, typed `Database`, typed `createClient`; type aliases (interfaces break `Record<string, unknown>` constraint) |
+| M4 skeleton flash on every RSVP | **Fixed** — initial-load-only skeletons + request-sequence guard |
+| M5 dashboard error shows misleading empty states | **Fixed** — error renders banner only |
+| M6 profile load failures swallowed | **Fixed** — `profileError` + retry in AuthContext/ProfilePage |
+| L1 search 400 on quotes | **Fixed** — sanitizer strips `"` `\` and reserved chars |
+| L2 login flash | **Fixed** — `applySession()` before navigate |
+| L3 join modal stale error | **Fixed** — state reset on open |
+| L4 max_members below roster | **Fixed** — client validation against current member count |
+| L5 forged session author | **Fixed** — 0003 policy binds `created_by = auth.uid()` |
+| L6 account deletion cascades sessions | **Not adopted** — account deletion is out of app scope; behavior disclosed |
+| L7 E2E didn't exercise app query shapes | **Fixed** — script rewritten: RPC joins, embeds, 14 security negatives (24 checks total) |
+| L8 dead code / timers / Math.random codes | **Fixed** — dead helpers removed, timer cleanup added, codes now DB-minted |
+| SEC-01 unused membership UPDATE policy | **Fixed** — 0004 drops it |
+| PR-01 search_path hardening | **Fixed** — 0004 pins `search_path = ''` on all definer functions + revokes schema CREATE |
+| PR-02 RSVPs survive leaving | **Fixed** — 0004 trigger deletes RSVPs on membership end |
+| SEC-05 .or() sanitization | **Fixed** — stricter charset stripping (defense-in-depth; targets a public table) |
+| INF-04 raw DB errors in UI | **Fixed** — `friendlyDbError()` mapping |
+| INF-06 font referrerpolicy | **Fixed** — `no-referrer` on font requests |
+| INF-01 no security headers | **Partially** — `client/public/_headers` (Netlify); Vercel needs `vercel.json` at deploy time |
+| INF-03 weak password minimum | **Partially** — client enforces 8+; server policy is platform config |
+| INF-02 email confirmation off | **Deliberate** (demo convenience); re-enable before public launch — documented |
+| INF-05 explicit GRANTs | **Not adopted** — default grants + RLS are the control; noted as optional hardening |
+| PR-03 tokens in localStorage | **Disclosed** — supabase-js default; no XSS sink exists (reviewer-verified) |
 
 ## Progress log
 
@@ -111,3 +145,7 @@ Direct lead execution for increments A–D; no other background assignments.
   update blocked, anon locked out; E2E user cleaned up). Demo data seeded: 3 students,
   3 groups, 4 sessions, RSVPs. Demo creds in gitignored .demo-credentials.txt.
 - 2026-11-09: README.md written. Reviewer + Security Reviewer launched in background (see ledger).
+- 2026-11-09: Reviews integrated. Migrations 0003 (enforced invites & privacy) and 0004 (review
+  hardening) pushed. Client updated: typed Database + strict TS, RPC-based join, public group
+  browsing, error/empty-state fixes. E2E script expanded to 24 checks — ALL PASSED against the
+  live database. Lint 0 errors; production build clean. Findings disposition table above.

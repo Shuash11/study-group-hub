@@ -9,7 +9,7 @@ import GroupsPage from './pages/GroupsPage'
 import GroupDetailPage from './pages/GroupDetailPage'
 import ProfilePage from './pages/ProfilePage'
 
-/** Redirects signed-out visitors to /login and renders the app shell for members. */
+/** Gates personal areas; group browsing stays public for signed-out visitors. */
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
   const location = useLocation()
@@ -32,20 +32,21 @@ export default function App() {
           </RequireAuth>
         }
       />
+      {/* Public: visitors can browse/search groups; personal data stays gated. */}
       <Route
         path="/groups"
         element={
-          <RequireAuth>
+          <Layout>
             <GroupsPage />
-          </RequireAuth>
+          </Layout>
         }
       />
       <Route
         path="/groups/:groupId"
         element={
-          <RequireAuth>
+          <Layout>
             <GroupDetailPage />
-          </RequireAuth>
+          </Layout>
         }
       />
       <Route

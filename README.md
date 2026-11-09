@@ -9,14 +9,17 @@ Row Level Security) → deployed frontend.
 ## Features
 
 - **Accounts** — email/password signup & login, editable profile (name, course, bio)
-- **Groups** — create, edit, delete your group; browse and search all groups by name or course
-  code; join with a 6-character invite code; leave; live member lists
+- **Groups** — create, edit, delete your group; browse and search all groups by name or
+  course code; join with a 6-character invite code (validated and capacity-checked by the
+  database itself); leave; live member lists
 - **Sessions** — schedule study sessions (date/time, duration, location), RSVP
   *Going / Maybe / Can't go*, see who else is coming; creators can delete sessions
 - **Dashboard** — your groups and every upcoming session across them, with your RSVP state
 - **Security** — authorization is enforced by the database itself (Row Level Security), not
-  just hidden buttons. Non-members can't see a group's sessions; nobody can join as an owner;
-  only owners can edit or delete their group.
+  just hidden buttons. Non-members can't see a group's sessions, member roster, or invite
+  code; joining happens only through a database function that checks the code and the
+  capacity limit; nobody can join as an owner; only owners can edit or delete their group;
+  profiles aren't readable by signed-out visitors.
 
 ## Tech stack
 
@@ -40,7 +43,7 @@ client/
   scripts/
     seed-and-verify.mjs   seeds demo data + runs 15 end-to-end checks
 supabase/
-  migrations/       versioned SQL schema (tables, RLS policies, triggers, indexes)
+  migrations/       versioned SQL schema (0001–0004: tables, RLS policies, triggers, enforced joins)
 ```
 
 ## Setup
@@ -63,9 +66,10 @@ supabase/
 ## Demo data & self-check
 
 `client/scripts/seed-and-verify.mjs` seeds three demo students with groups, sessions and
-RSVPs, then runs 15 end-to-end checks (signup → profile trigger → group create → owner
-trigger → join by code → RSVPs → RLS negative tests). Demo credentials are written to
-`.demo-credentials.txt` (gitignored).
+RSVPs, then runs 24 end-to-end checks — signup → profile trigger → group create + invite
+trigger → RPC join by code → sessions → RSVPs → 14 security negatives (invite-code secrecy,
+capacity enforcement, forged-author rejection, anon lockdown, RSVP cleanup on leave).
+Demo credentials are written to `.demo-credentials.txt` (gitignored).
 
 ```bash
 cd client

@@ -21,7 +21,7 @@ function friendlyAuthError(message: string): string {
 }
 
 export default function AuthPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, applySession } = useAuth()
   const navigate = useNavigate()
 
   const [mode, setMode] = useState<Mode>('login')
@@ -47,8 +47,8 @@ export default function AuthPage() {
     else if (!/^\S+@\S+\.\S+$/.test(email.trim()))
       errors.email = 'Enter a valid email address.'
     if (!password) errors.password = 'Password is required.'
-    else if (mode === 'signup' && password.length < 6)
-      errors.password = 'Password must be at least 6 characters.'
+    else if (mode === 'signup' && password.length < 8)
+      errors.password = 'Password must be at least 8 characters.'
     if (mode === 'signup' && !fullName.trim()) errors.fullName = 'Please enter your name.'
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -67,8 +67,10 @@ export default function AuthPage() {
           setAwaitingConfirmation(true)
           return
         }
+        applySession(session)
       } else {
-        await signIn(email.trim(), password)
+        const session = await signIn(email.trim(), password)
+        applySession(session)
       }
       navigate('/', { replace: true })
     } catch (err) {
@@ -174,7 +176,7 @@ export default function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
               error={fieldErrors.password}
               autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              hint={mode === 'signup' ? 'At least 6 characters' : undefined}
+              hint={mode === 'signup' ? 'At least 8 characters' : undefined}
               required
             />
             <Button type="submit" loading={submitting} className="w-full">

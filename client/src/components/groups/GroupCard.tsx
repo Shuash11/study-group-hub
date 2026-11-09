@@ -2,15 +2,9 @@ import { Link } from 'react-router-dom'
 import { Card } from '../ui/Card'
 import { Badge } from '../ui/Badge'
 import { UsersIcon } from '../icons'
-import type { GroupRole, GroupWithCount } from '../../lib/database.types'
+import type { Group, GroupRole } from '../../lib/database.types'
 
-export function GroupCard({
-  group,
-  role,
-}: {
-  group: GroupWithCount
-  role?: GroupRole
-}) {
+export function GroupCard({ group, role }: { group: Group; role?: GroupRole }) {
   const full = group.member_count >= group.max_members
   return (
     <Link

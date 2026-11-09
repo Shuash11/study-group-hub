@@ -6,9 +6,11 @@
  *
  * What it does:
  *   1. Idempotently seeds demo users, groups, sessions and RSVPs (admin API).
- *   2. Runs end-to-end checks: real signup path, profile trigger, group
- *      creation + owner trigger, join by code, sessions, RSVPs, and RLS
- *      negative tests (non-member, role escalation, anon access).
+ *   2. Runs end-to-end checks that mirror the app's real query shapes:
+ *      signup -> profile trigger -> group create + invite trigger -> RPC join
+ *      by code -> sessions -> RSVPs, plus RLS/security negatives (invite-code
+ *      secrecy, direct membership insert, capacity, created_by binding,
+ *      RSVP cleanup on leave, anon lockdown).
  *   3. Cleans up the temporary E2E user (cascades all its data).
  */
 import { createClient } from '@supabase/supabase-js'
@@ -70,7 +72,12 @@ function futureDate(days, hour, minute = 0) {
 async function ensureDemoUser({ email, name, course }) {
   const { data: list } = await admin.auth.admin.listUsers({ perPage: 500 })
   const existing = list?.users?.find((u) => u.email === email)
-  if (existing) return existing
+  if (existing) {
+    // Idempotent seeding: align existing accounts with this run's password so
+    // sign-in checks work regardless of which run created the user.
+    await admin.auth.admin.updateUserById(existing.id, { password: DEMO_PASSWORD })
+    return existing
+  }
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: DEMO_PASSWORD,
@@ -82,26 +89,20 @@ async function ensureDemoUser({ email, name, course }) {
   return data.user
 }
 
-async function ensureGroup(name, courseCode, description, ownerId, maxMembers, joinCode) {
-  const { data: existing } = await admin
-    .from('groups')
-    .select('*')
-    .eq('name', name)
-    .maybeSingle()
+async function ensureGroup(name, courseCode, description, ownerId, maxMembers, inviteCode) {
+  const { data: existing } = await admin.from('groups').select('*').eq('name', name).maybeSingle()
   if (existing) return existing
+  // No join_code column anymore (0003): the code lives in group_invites.
   const { data, error } = await admin
     .from('groups')
-    .insert({
-      name,
-      course_code: courseCode,
-      description,
-      owner_id: ownerId,
-      max_members: maxMembers,
-      join_code: joinCode,
-    })
+    .insert({ name, course_code: courseCode, description, owner_id: ownerId, max_members: maxMembers })
     .select()
     .single()
   if (error) throw new Error(`ensureGroup(${name}): ${error.message}`)
+  const { error: inviteError } = await admin
+    .from('group_invites')
+    .insert({ group_id: data.id, code: inviteCode })
+  if (inviteError) throw new Error(`ensureGroup invite(${name}): ${inviteError.message}`)
   return data
 }
 
@@ -127,14 +128,7 @@ async function ensureSession(groupId, createdBy, title, startsAt, duration, loca
   if (existing) return existing
   const { data, error } = await admin
     .from('study_sessions')
-    .insert({
-      group_id: groupId,
-      created_by: createdBy,
-      title,
-      starts_at: startsAt,
-      duration_minutes: duration,
-      location,
-    })
+    .insert({ group_id: groupId, created_by: createdBy, title, starts_at: startsAt, duration_minutes: duration, location })
     .select()
     .single()
   if (error) throw new Error(`ensureSession(${title}): ${error.message}`)
@@ -142,9 +136,7 @@ async function ensureSession(groupId, createdBy, title, startsAt, duration, loca
 }
 
 async function ensureRsvp(sessionId, userId, status) {
-  const { error } = await admin
-    .from('session_rsvps')
-    .upsert({ session_id: sessionId, user_id: userId, status })
+  const { error } = await admin.from('session_rsvps').upsert({ session_id: sessionId, user_id: userId, status })
   if (error) throw new Error(`ensureRsvp: ${error.message}`)
 }
 
@@ -160,48 +152,33 @@ async function seed() {
   const [avaUser, miguelUser, priyaUser] = users
 
   const calc = await ensureGroup(
-    'Calculus 2 Survival Squad',
-    'MATH-202',
+    'Calculus 2 Survival Squad', 'MATH-202',
     'Weekly problem sets, exam reviews, and integral panic management. Bring snacks.',
-    avaUser.id,
-    12,
-    'MTH2X7',
+    avaUser.id, 12, 'MTH2X7',
   )
   const cs = await ensureGroup(
-    'Programming 2 Warriors',
-    'CS-102',
+    'Programming 2 Warriors', 'CS-102',
     'Pair programming for machine problems. Java, but make it survivable.',
-    miguelUser.id,
-    8,
-    'CS102P',
+    miguelUser.id, 8, 'CS102P',
   )
   const phys = await ensureGroup(
-    'Physics Night Owls',
-    'PHY-110',
+    'Physics Night Owls', 'PHY-110',
     'Late-night problem solving before every long exam.',
-    priyaUser.id,
-    6,
-    'PHY110',
+    priyaUser.id, 6, 'PHY110',
   )
 
   await ensureMember(calc.id, miguelUser.id, 'member')
   await ensureMember(calc.id, priyaUser.id, 'member')
   await ensureMember(cs.id, avaUser.id, 'member')
-  await ensureMember(phys.id, priyaUser.id, 'owner') // no-op if exists (owner already there)
 
-  const s1 = await ensureSession(
-    calc.id, avaUser.id, 'Midterm review — chapters 4–6', futureDate(1, 19), 120, 'Library room 204',
-  )
-  const s2 = await ensureSession(
-    calc.id, avaUser.id, 'Weekly problem set 8', futureDate(4, 18, 30), 90, 'Online (link in details)',
-  )
+  const s1 = await ensureSession(calc.id, avaUser.id, 'Midterm review — chapters 4–6', futureDate(1, 19), 120, 'Library room 204')
+  const s2 = await ensureSession(calc.id, avaUser.id, 'Weekly problem set 8', futureDate(4, 18, 30), 90, 'Online (link in details)')
   await ensureSession(cs.id, miguelUser.id, 'Machine problem 3 pair-up', futureDate(2, 16), 60, 'CS lab 3')
   await ensureSession(phys.id, priyaUser.id, 'Vectors recap', futureDate(-1, 20), 60, 'Study hall B')
 
   await ensureRsvp(s1.id, miguelUser.id, 'going')
   await ensureRsvp(s1.id, priyaUser.id, 'maybe')
   await ensureRsvp(s2.id, miguelUser.id, 'maybe')
-  return { calc }
 }
 
 async function runE2E() {
@@ -228,13 +205,12 @@ async function runE2E() {
       'signup did not return a session (email confirmation still required)',
       'flip "Confirm email" off in Dashboard → Authentication → Sign In / Providers',
     )
-    // Clean up the unconfirmed user, then create a confirmed one to continue.
     const { data: list } = await admin.auth.admin.listUsers({ perPage: 500 })
     const unconfirmed = list?.users?.find((u) => u.email === e2eEmail)
     if (unconfirmed) await admin.auth.admin.deleteUser(unconfirmed.id)
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email: e2eEmail,
-      password: 'E2eTest!123',
+      password: DEMO_PASSWORD,
       email_confirm: true,
       user_metadata: { full_name: 'E2E Tester' },
     })
@@ -251,8 +227,7 @@ async function runE2E() {
   const { data: profile } = await client.from('profiles').select('*').eq('id', e2eUser.id).maybeSingle()
   check('profile auto-created with full_name from signup metadata', profile?.full_name === 'E2E Tester', `got "${profile?.full_name}"`)
 
-  // 3. Group creation + owner-membership trigger.
-  const joinCode = `E2E${String(stamp).slice(-3)}X`
+  // 3. Group creation: invite code minted by trigger, hidden from the public table.
   const { data: group, error: groupError } = await client
     .from('groups')
     .insert({
@@ -260,22 +235,29 @@ async function runE2E() {
       course_code: 'E2E-101',
       description: 'Temporary group for automated verification.',
       owner_id: e2eUser.id,
-      max_members: 5,
-      join_code: joinCode,
+      max_members: 2, // owner + one joiner; capacity enforced by the RPC
     })
     .select()
     .single()
   check('authenticated user can create a group', !!group && !groupError, groupError?.message)
+  check('groups table no longer exposes join_code', group !== null && !('join_code' in (group ?? {})))
+
+  const { data: invite } = await client.from('group_invites').select('code').eq('group_id', group.id).maybeSingle()
+  const code = invite?.code
+  check('invite code minted for creator (member-readable only)', typeof code === 'string' && code.length === 6, `code: ${code}`)
 
   const { data: ownerRow } = await client
-    .from('group_members')
-    .select('role')
-    .eq('group_id', group.id)
-    .eq('user_id', e2eUser.id)
-    .maybeSingle()
+    .from('group_members').select('role').eq('group_id', group.id).eq('user_id', e2eUser.id).maybeSingle()
   check('creator automatically becomes owner member (trigger)', ownerRow?.role === 'owner', `role: ${ownerRow?.role}`)
 
-  // 4. Session creation by the owner.
+  // 4. Direct membership insert is no longer a path (0003 dropped the policy).
+  const { data: physGroup } = await admin.from('groups').select('id').eq('name', 'Physics Night Owls').maybeSingle()
+  const { error: directInsertError } = await client
+    .from('group_members')
+    .insert({ group_id: physGroup.id, user_id: e2eUser.id, role: 'member' })
+  check('direct self-insert into group_members is rejected', !!directInsertError, directInsertError?.message.slice(0, 80))
+
+  // 5. Session creation bound to its author.
   const { data: session, error: sessionError } = await client
     .from('study_sessions')
     .insert({
@@ -289,59 +271,83 @@ async function runE2E() {
     .single()
   check('group member can create a session', !!session && !sessionError, sessionError?.message)
 
-  // 5. Non-member cannot see sessions (RLS).
+  const { error: spoofError } = await client
+    .from('study_sessions')
+    .insert({
+      group_id: group.id,
+      created_by: '00000000-0000-0000-0000-000000000000',
+      title: 'Spoofed author session',
+      starts_at: futureDate(2, 15),
+    })
+  check('session with forged created_by is rejected (0003 #5)', !!spoofError)
+
+  // 6. Second user joins via the secure RPC (the app's only join path).
   const checkerClient = fresh()
   await ensureDemoUser({ email: 'checker@demo.studyhub.test', name: 'RLS Checker', course: null })
   await signInAs('checker@demo.studyhub.test', checkerClient)
   const { data: checkerUser } = await checkerClient.auth.getUser()
+  const checkerId = checkerUser.user.id
+
   const { data: beforeJoin } = await checkerClient
-    .from('study_sessions')
-    .select('id')
-    .eq('group_id', group.id)
+    .from('study_sessions').select('id').eq('group_id', group.id)
   check('non-member sees no sessions (RLS)', (beforeJoin ?? []).length === 0, `rows: ${(beforeJoin ?? []).length}`)
 
-  // 6. Role-escalation blocked by migration 0002.
-  const { data: physGroup } = await admin.from('groups').select('id').eq('name', 'Physics Night Owls').maybeSingle()
-  const { error: escalateError } = await checkerClient
-    .from('group_members')
-    .insert({ group_id: physGroup.id, user_id: checkerUser.user.id, role: 'owner' })
-  check('self-insert as owner is rejected (RLS)', !!escalateError)
+  const { data: joinedId, error: joinError } = await checkerClient
+    .rpc('join_group_by_code', { p_code: code.toLowerCase() }) // case-insensitive on purpose
+  check('join via invite-code RPC works (case-insensitive)', joinedId === group.id && !joinError, joinError?.message)
 
-  // 7. Owner-only group update blocked.
-  const { data: hacked } = await checkerClient
-    .from('groups')
-    .update({ name: 'HACKED' })
-    .eq('id', group.id)
-    .select()
-  check('non-owner cannot update a group (RLS)', (hacked ?? []).length === 0)
-
-  // 8. Join by code works.
-  const { data: foundByCode } = await checkerClient.from('groups').select('*').eq('join_code', joinCode).maybeSingle()
-  check('group findable by invite code', foundByCode?.id === group.id)
-  const { error: joinError } = await checkerClient
-    .from('group_members')
-    .insert({ group_id: group.id, user_id: checkerUser.user.id, role: 'member' })
-  check('user can join a group as member', !joinError, joinError?.message)
-
-  // 9. Member can now see sessions and RSVP.
   const { data: afterJoin } = await checkerClient
-    .from('study_sessions')
-    .select('id')
-    .eq('group_id', group.id)
+    .from('study_sessions').select('id').eq('group_id', group.id)
   check('member sees group sessions', (afterJoin ?? []).length === 1, `rows: ${(afterJoin ?? []).length}`)
+
   const { error: rsvpError } = await checkerClient
-    .from('session_rsvps')
-    .insert({ session_id: session.id, user_id: checkerUser.user.id, status: 'going' })
+    .from('session_rsvps').insert({ session_id: session.id, user_id: checkerId, status: 'going' })
   check('member can RSVP', !rsvpError, rsvpError?.message)
 
-  // 10. Anon access is locked down.
-  const anonClient = fresh()
-  const { data: anonSessions } = await anonClient.from('study_sessions').select('id').eq('group_id', group.id)
-  check('anon sees no sessions (RLS)', (anonSessions ?? []).length === 0)
-  const { data: anonProfile } = await anonClient.from('profiles').select('*').limit(1)
-  check('anon can browse public profiles (by design)', Array.isArray(anonProfile))
+  const { data: groupAfterJoins } = await client.from('groups').select('member_count').eq('id', group.id).maybeSingle()
+  check('member_count trigger keeps the aggregate in sync', groupAfterJoins?.member_count === 2, `count: ${groupAfterJoins?.member_count}`)
 
-  // 11. Cleanup — deleting the E2E user cascades all its data.
+  // 7. Capacity is enforced by the RPC (0003), not just the UI.
+  const avaClient = fresh()
+  await signInAs('ava@demo.studyhub.test', avaClient)
+  const { error: fullError } = await avaClient.rpc('join_group_by_code', { p_code: code })
+  check('joining a full group is rejected by the RPC (capacity)', !!fullError && fullError.message.includes('full'), fullError?.message)
+
+  // 8. Roster and profile privacy (0003 #6).
+  const { data: anonProfiles } = await fresh().from('profiles').select('*').limit(1)
+  check('anon sees no profiles (personal data gated)', (anonProfiles ?? []).length === 0, `rows: ${(anonProfiles ?? []).length}`)
+  const { data: authedProfiles } = await client.from('profiles').select('*').limit(1)
+  check('authenticated users can see profiles', (authedProfiles ?? []).length > 0)
+  const { data: inviteAnon } = await fresh().from('group_invites').select('code').limit(1)
+  check('anon cannot read any invite codes', (inviteAnon ?? []).length === 0)
+
+  // 9. Non-creator member cannot delete someone else's session (creator-only policy).
+  const { data: deletedByNonCreator } = await checkerClient
+    .from('study_sessions').delete().eq('id', session.id).select()
+  check('non-creator cannot delete a session', (deletedByNonCreator ?? []).length === 0)
+
+  // 10. RSVPs are cleaned up when a member leaves (0004 PR-02).
+  const { error: leaveError } = await checkerClient
+    .from('group_members')
+    .delete()
+    .eq('group_id', group.id)
+    .eq('user_id', checkerId)
+    .eq('role', 'member')
+  check('member can leave the group', !leaveError, leaveError?.message)
+  const { data: rsvpsAfterLeave } = await client
+    .from('session_rsvps').select('user_id').eq('session_id', session.id)
+  check('leaving removed the member RSVPs (0004)', (rsvpsAfterLeave ?? []).length === 0, `rows: ${(rsvpsAfterLeave ?? []).length}`)
+
+  // 11. Non-owner still cannot update the group (owner-only policy).
+  const { data: hacked } = await checkerClient
+    .from('groups').update({ name: 'HACKED' }).eq('id', group.id).select()
+  check('non-owner cannot update a group (RLS)', (hacked ?? []).length === 0)
+
+  // 12. Anon lockdown on the join RPC.
+  const { error: anonJoinError } = await fresh().rpc('join_group_by_code', { p_code: 'ABC123' })
+  check('anon cannot execute the join RPC', !!anonJoinError, anonJoinError?.message.slice(0, 60))
+
+  // 13. Cleanup — deleting the E2E user cascades all its data.
   const { error: delError } = await admin.auth.admin.deleteUser(e2eUser.id)
   check('E2E user cleaned up (cascade removes group, sessions, RSVPs)', !delError, delError?.message)
 }
@@ -366,7 +372,7 @@ if (process.env.WRITE_DEMO_CREDS) {
       '',
       ...DEMO_USERS.map((u) => `${u.email}  —  ${u.name}`),
       '',
-      'Signed-in demo accounts created by scripts/seed-and-verify.mjs',
+      'Created by scripts/seed-and-verify.mjs',
     ].join('\n'),
   )
   console.log('Demo credentials written to .demo-credentials.txt (gitignored)')

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { listGroups, listMyGroups } from '../services/groups'
-import type { GroupRole, GroupWithCount } from '../lib/database.types'
+import type { GroupRole, Group } from '../lib/database.types'
 import { GroupCard } from '../components/groups/GroupCard'
 import { GroupFormModal } from '../components/groups/GroupFormModal'
 import { JoinGroupModal } from '../components/groups/JoinGroupModal'
@@ -15,12 +15,18 @@ export default function GroupsPage() {
   const navigate = useNavigate()
 
   const [query, setQuery] = useState('')
-  const [groups, setGroups] = useState<GroupWithCount[] | null>(null)
+  const [groups, setGroups] = useState<Group[] | null>(null)
   const [myRoles, setMyRoles] = useState<Record<string, GroupRole>>({})
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
+
+  // Visitors can browse; actions that need an account route to /login instead.
+  const requireAuth = (action: () => void) => () => {
+    if (user) action()
+    else navigate('/login')
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -60,11 +66,11 @@ export default function GroupsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setShowJoin(true)}>
+          <Button variant="secondary" onClick={requireAuth(() => setShowJoin(true))}>
             <TicketIcon size={16} />
             Join with code
           </Button>
-          <Button onClick={() => setShowCreate(true)}>
+          <Button onClick={requireAuth(() => setShowCreate(true))}>
             <PlusIcon size={16} />
             Create group
           </Button>
@@ -108,7 +114,11 @@ export default function GroupsPage() {
               icon={<UsersIcon size={28} />}
               title="No study groups yet"
               description="Be the first — create a group for your course and share the invite code with classmates."
-              action={<Button onClick={() => setShowCreate(true)}>Create the first group</Button>}
+              action={
+                <Button onClick={requireAuth(() => setShowCreate(true))}>
+                  Create the first group
+                </Button>
+              }
             />
           )
         ) : (
@@ -130,7 +140,7 @@ export default function GroupsPage() {
       <JoinGroupModal
         open={showJoin}
         onClose={() => setShowJoin(false)}
-        onJoined={(group) => navigate(`/groups/${group.id}`)}
+        onJoined={(groupId) => navigate(`/groups/${groupId}`)}
       />
     </div>
   )

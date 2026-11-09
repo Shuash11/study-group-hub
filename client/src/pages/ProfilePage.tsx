@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Input, Textarea } from '../components/ui/Form'
@@ -7,7 +7,8 @@ import { ErrorBanner, Skeleton } from '../components/ui/Feedback'
 import { formatDate, initials } from '../lib/format'
 
 export default function ProfilePage() {
-  const { user, profile, saveProfile } = useAuth()
+  const { user, profile, profileError, saveProfile, refreshProfile } = useAuth()
+  const savedTimer = useRef<number | null>(null)
 
   const [fullName, setFullName] = useState('')
   const [course, setCourse] = useState('')
@@ -47,7 +48,8 @@ export default function ProfilePage() {
       })
       setDirty(false)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      if (savedTimer.current !== null) clearTimeout(savedTimer.current)
+      savedTimer.current = window.setTimeout(() => setSaved(false), 2500)
     } catch (err) {
       setFormError(
         err instanceof Error ? err.message : 'Could not save your profile. Please try again.',
@@ -91,7 +93,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {profile === null && !dirty && !initialized ? (
+        {profileError ? (
+          <ErrorBanner message={profileError} onRetry={refreshProfile} />
+        ) : profile === null && !dirty && !initialized ? (
           <div className="space-y-4" aria-hidden="true">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-11 w-full" />

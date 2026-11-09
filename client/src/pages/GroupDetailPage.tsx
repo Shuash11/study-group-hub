@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   deleteGroup,
   getGroup,
+  getInviteCode,
   getMembers,
   getMyMembership,
   leaveGroup,
 } from '../services/groups'
 import { listSessions } from '../services/sessions'
+import { friendlyDbError } from '../lib/errors'
 import type {
   Group,
   GroupRole,
@@ -43,7 +45,8 @@ export default function GroupDetailPage() {
   const [members, setMembers] = useState<MemberWithProfile[]>([])
   const [sessions, setSessions] = useState<SessionWithRsvp[]>([])
   const [myRole, setMyRole] = useState<GroupRole | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [inviteCode, setInviteCode] = useState<string | null>(null)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -53,25 +56,31 @@ export default function GroupDetailPage() {
   const [showJoin, setShowJoin] = useState(false)
   const [showSessionForm, setShowSessionForm] = useState(false)
 
+  // Only the newest load() result is applied (no stale-response races, M4).
+  const seqRef = useRef(0)
+  const copyTimer = useRef<number | null>(null)
+
   const load = useCallback(async () => {
-    if (!groupId || !user) return
-    setLoading(true)
+    if (!groupId) return
+    const seq = ++seqRef.current
     setLoadError(null)
     try {
-      const [g, m, role, s] = await Promise.all([
+      const [g, m, role, groupSessions] = await Promise.all([
         getGroup(groupId),
         getMembers(groupId),
-        getMyMembership(groupId, user.id),
-        listSessions(groupId, user.id),
+        user ? getMyMembership(groupId, user.id) : Promise.resolve(null),
+        user ? listSessions(groupId, user.id) : Promise.resolve([]),
       ])
+      if (seq !== seqRef.current) return
       setGroup(g)
       setMembers(m)
       setMyRole(role)
-      setSessions(s)
+      setSessions(groupSessions)
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to load this group.')
+      if (seq === seqRef.current)
+        setLoadError(err instanceof Error ? err.message : 'Failed to load this group.')
     } finally {
-      setLoading(false)
+      if (seq === seqRef.current) setInitialLoading(false)
     }
   }, [groupId, user])
 
@@ -79,12 +88,38 @@ export default function GroupDetailPage() {
     load()
   }, [load])
 
+  // The invite code is member-only data (RLS on group_invites).
+  useEffect(() => {
+    if (!groupId || !user || myRole === null) {
+      setInviteCode(null)
+      return
+    }
+    let cancelled = false
+    getInviteCode(groupId)
+      .then((code) => {
+        if (!cancelled) setInviteCode(code)
+      })
+      .catch(() => {
+        if (!cancelled) setInviteCode(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [groupId, user, myRole])
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+    }
+  }, [])
+
   async function copyCode() {
-    if (!group) return
+    if (!inviteCode) return
     try {
-      await navigator.clipboard.writeText(group.join_code)
+      await navigator.clipboard.writeText(inviteCode)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+      copyTimer.current = window.setTimeout(() => setCopied(false), 2000)
     } catch {
       // Clipboard unavailable — the code is visible on screen anyway.
     }
@@ -93,7 +128,7 @@ export default function GroupDetailPage() {
   const isOwner = myRole === 'owner'
   const isMember = myRole !== null
 
-  if (loading) {
+  if (initialLoading) {
     return <SkeletonList rows={4} />
   }
 
@@ -125,7 +160,7 @@ export default function GroupDetailPage() {
   }
 
   const owner = members.find((m) => m.role === 'owner')
-  const full = members.length >= group.max_members
+  const full = group.member_count >= group.max_members
   const upcoming = sessions.filter((s) => isUpcoming(s.starts_at))
   const past = [...sessions.filter((s) => !isUpcoming(s.starts_at))].reverse()
 
@@ -149,11 +184,13 @@ export default function GroupDetailPage() {
             <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
               <span className="inline-flex items-center gap-1">
                 <UsersIcon size={14} />
-                {members.length}/{group.max_members} members
+                {group.member_count}/{group.max_members} members
                 {full && !isMember && ' · full'}
               </span>
               <span>Created {formatDate(group.created_at)}</span>
-              {owner?.profiles?.full_name && <span>Owner: {owner.profiles.full_name}</span>}
+              {isMember && owner?.profiles?.full_name && (
+                <span>Owner: {owner.profiles.full_name}</span>
+              )}
             </p>
           </div>
 
@@ -176,21 +213,26 @@ export default function GroupDetailPage() {
                     Leave group
                   </Button>
                 )}
-                <button
-                  type="button"
-                  onClick={copyCode}
-                  aria-label={`Copy invite code ${group.join_code}`}
-                  className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-3 py-1.5 font-mono text-sm font-semibold tracking-[0.2em] text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transition-none"
-                >
-                  <TicketIcon size={15} className="tracking-normal" />
-                  {group.join_code}
-                  <span className="font-sans text-xs font-medium normal-case tracking-normal text-brand-700">
-                    {copied ? 'Copied!' : 'Copy'}
-                  </span>
-                </button>
+                {inviteCode && (
+                  <button
+                    type="button"
+                    onClick={copyCode}
+                    aria-label={`Copy invite code ${inviteCode}`}
+                    className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-3 py-1.5 font-mono text-sm font-semibold tracking-[0.2em] text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transition-none"
+                  >
+                    <TicketIcon size={15} className="tracking-normal" />
+                    {inviteCode}
+                    <span className="font-sans text-xs font-medium normal-case tracking-normal text-brand-700">
+                      {copied ? 'Copied!' : 'Copy'}
+                    </span>
+                  </button>
+                )}
               </>
             ) : (
-              <Button onClick={() => setShowJoin(true)} disabled={full}>
+              <Button
+                onClick={() => (user ? setShowJoin(true) : navigate('/login'))}
+                disabled={full}
+              >
                 {full ? 'Group is full' : 'Join group'}
               </Button>
             )}
@@ -207,34 +249,46 @@ export default function GroupDetailPage() {
         <Card className="lg:col-span-2">
           <h2 className="text-lg font-semibold text-slate-900">Members</h2>
           <p className="mt-0.5 text-sm text-slate-500">
-            {members.length} of {group.max_members} spots filled
+            {group.member_count} of {group.max_members} spots filled
           </p>
-          <ul className="mt-4 list-none space-y-3 p-0">
-            {members.map((m) => (
-              <li key={m.user_id} className="flex items-center gap-3">
-                <span
-                  aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800"
-                >
-                  {initials(m.profiles?.full_name)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-slate-900">
-                    {m.profiles?.full_name || 'Unnamed member'}
-                    {m.user_id === user?.id && (
-                      <span className="ml-1.5 text-xs font-normal text-slate-500">(you)</span>
-                    )}
-                  </span>
-                  {m.profiles?.course && (
-                    <span className="block truncate text-xs text-slate-500">
-                      {m.profiles.course}
+          <div className="mt-4">
+            {members.length === 0 && !isMember ? (
+              <EmptyState
+                icon={<UsersIcon size={24} />}
+                title="Members-only"
+                description="Join this group to see who's in it."
+              />
+            ) : (
+              <ul className="list-none space-y-3 p-0">
+                {members.map((m) => (
+                  <li key={m.user_id} className="flex items-center gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800"
+                    >
+                      {initials(m.profiles?.full_name)}
                     </span>
-                  )}
-                </span>
-                {m.role === 'owner' && <Badge variant="brand">Owner</Badge>}
-              </li>
-            ))}
-          </ul>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-slate-900">
+                        {m.profiles?.full_name || 'Unnamed member'}
+                        {m.user_id === user?.id && (
+                          <span className="ml-1.5 text-xs font-normal text-slate-500">
+                            (you)
+                          </span>
+                        )}
+                      </span>
+                      {m.profiles?.course && (
+                        <span className="block truncate text-xs text-slate-500">
+                          {m.profiles.course}
+                        </span>
+                      )}
+                    </span>
+                    {m.role === 'owner' && <Badge variant="brand">Owner</Badge>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </Card>
 
         <Card className="lg:col-span-3">
@@ -284,7 +338,9 @@ export default function GroupDetailPage() {
                 )}
                 {past.length > 0 && (
                   <>
-                    <h3 className="pt-2 text-sm font-semibold text-slate-500">Past sessions</h3>
+                    <h3 className="pt-2 text-sm font-semibold text-slate-500">
+                      Past sessions
+                    </h3>
                     <ul className="list-none space-y-3 p-0">
                       {past.map((s) => (
                         <SessionCard key={s.id} session={s} onChanged={load} />
@@ -302,6 +358,7 @@ export default function GroupDetailPage() {
         open={showEdit}
         onClose={() => setShowEdit(false)}
         initial={group}
+        currentMemberCount={group.member_count}
         onSaved={(updated) => setGroup(updated)}
       />
       <JoinGroupModal
@@ -328,7 +385,7 @@ export default function GroupDetailPage() {
             navigate('/groups', { replace: true })
           } catch (err) {
             setShowDelete(false)
-            setActionError(err instanceof Error ? err.message : 'Could not delete the group.')
+            setActionError(friendlyDbError(err, 'Could not delete the group.'))
           }
         }}
       />
@@ -346,7 +403,7 @@ export default function GroupDetailPage() {
             navigate('/groups', { replace: true })
           } catch (err) {
             setShowLeave(false)
-            setActionError(err instanceof Error ? err.message : 'Could not leave the group.')
+            setActionError(friendlyDbError(err, 'Could not leave the group.'))
           }
         }}
       />

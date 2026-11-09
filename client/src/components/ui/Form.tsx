@@ -53,7 +53,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { label, error, hint, id, className = '', ...props },
   ref,
 ) {
-  const inputId = id ?? useId()
+  const autoId = useId()
+  const inputId = id ?? autoId
   return (
     <FieldShell label={label} error={error} hint={hint} inputId={inputId}>
       <input
@@ -78,7 +79,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   { label, error, hint, id, className = '', rows = 3, ...props },
   ref,
 ) {
-  const inputId = id ?? useId()
+  const autoId = useId()
+  const inputId = id ?? autoId
   return (
     <FieldShell label={label} error={error} hint={hint} inputId={inputId}>
       <textarea

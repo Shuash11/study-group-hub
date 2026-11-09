@@ -37,24 +37,9 @@ export function isUpcoming(iso: string): boolean {
   return new Date(iso).getTime() > Date.now()
 }
 
-const JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no 0/O/1/I lookalikes
-
-/** Random 6-character group invite code, e.g. "K7P2XN". */
-export function generateJoinCode(): string {
-  let code = ''
-  for (let i = 0; i < 6; i++) {
-    code += JOIN_CODE_ALPHABET[Math.floor(Math.random() * JOIN_CODE_ALPHABET.length)]
-  }
-  return code
-}
-
 /** "Maria Santos" -> "MS" for avatar circles. */
 export function initials(name: string | null | undefined): string {
   if (!name) return '?'
   const parts = name.trim().split(/\s+/).slice(0, 2)
   return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?'
-}
-
-export function normalizeJoinCode(raw: string): string {
-  return raw.trim().toUpperCase()
 }
