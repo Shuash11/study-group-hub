@@ -8,8 +8,8 @@ import { formatDateTime, formatDuration, isUpcoming } from '../../lib/format'
 import type { RsvpStatus, RsvpWithProfile, SessionWithRsvp } from '../../lib/database.types'
 
 const RSVP_OPTIONS: Array<{ value: RsvpStatus; label: string; activeClass: string }> = [
-  { value: 'going', label: 'Going', activeClass: 'bg-emerald-600 text-white border-emerald-600' },
-  { value: 'maybe', label: 'Maybe', activeClass: 'bg-amber-500 text-white border-amber-500' },
+  { value: 'going', label: 'Going', activeClass: 'bg-emerald-700 text-white border-emerald-700' },
+  { value: 'maybe', label: 'Maybe', activeClass: 'bg-amber-700 text-white border-amber-700' },
   {
     value: 'not_going',
     label: "Can't go",
@@ -76,7 +76,7 @@ export function SessionCard({
 
   return (
     <li
-      className={`rounded-lg border border-slate-200 bg-white p-4 ${past ? 'opacity-75' : ''}`}
+      className={`rounded-lg border border-slate-200 bg-white p-4`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
@@ -106,14 +106,16 @@ export function SessionCard({
             type="button"
             onClick={() => setShowDelete(true)}
             aria-label={`Delete session ${session.title}`}
-            className="rounded-md p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 motion-reduce:transition-none"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 motion-reduce:transition-none"
           >
             <TrashIcon size={16} />
           </button>
         )}
       </div>
 
-      {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-xs font-medium text-red-600">{error}</p>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {!past &&
@@ -126,7 +128,7 @@ export function SessionCard({
                 aria-pressed={active}
                 disabled={saving}
                 onClick={() => toggle(opt.value)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-60 motion-reduce:transition-none ${
+                className={`min-h-[40px] rounded-full border px-4 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-60 motion-reduce:transition-none ${
                   active
                     ? opt.activeClass
                     : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'

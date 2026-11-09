@@ -13,7 +13,7 @@ export function GroupCard({ group, role }: { group: Group; role?: GroupRole }) {
     >
       <Card className="h-full transition-shadow duration-150 hover:shadow-md motion-reduce:transition-none">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="leading-snug font-semibold text-slate-900">{group.name}</h3>
+          <h2 className="leading-snug font-semibold text-slate-900">{group.name}</h2>
           {role === 'owner' && <Badge variant="brand">Owner</Badge>}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">

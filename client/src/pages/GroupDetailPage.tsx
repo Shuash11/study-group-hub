@@ -222,7 +222,7 @@ export default function GroupDetailPage() {
                   >
                     <TicketIcon size={15} className="tracking-normal" />
                     {inviteCode}
-                    <span className="font-sans text-xs font-medium normal-case tracking-normal text-brand-700">
+                    <span role="status" className="font-sans text-xs font-medium normal-case tracking-normal text-brand-700">
                       {copied ? 'Copied!' : 'Copy'}
                     </span>
                   </button>
@@ -240,7 +240,7 @@ export default function GroupDetailPage() {
         </div>
         {actionError && (
           <div className="mt-4">
-            <ErrorBanner message={actionError} onRetry={() => setActionError(null)} />
+            <ErrorBanner message={actionError} />
           </div>
         )}
       </Card>
@@ -415,7 +415,7 @@ function BackLink() {
   return (
     <Link
       to="/groups"
-      className="inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md px-1 text-sm font-medium text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
       <ArrowLeftIcon size={16} />
       All groups

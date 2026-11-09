@@ -73,7 +73,7 @@ export function ErrorBanner({
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-md px-2 py-1 text-sm font-medium text-red-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          className="inline-flex min-h-[40px] items-center rounded-md px-3 py-2 text-sm font-medium text-red-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
         >
           Try again
         </button>

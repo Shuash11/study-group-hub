@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { listGroups, listMyGroups } from '../services/groups'
 import type { GroupRole, Group } from '../lib/database.types'
@@ -13,6 +13,7 @@ import { PlusIcon, SearchIcon, TicketIcon, UsersIcon } from '../components/icons
 export default function GroupsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [query, setQuery] = useState('')
   const [groups, setGroups] = useState<Group[] | null>(null)
@@ -25,7 +26,7 @@ export default function GroupsPage() {
   // Visitors can browse; actions that need an account route to /login instead.
   const requireAuth = (action: () => void) => () => {
     if (user) action()
-    else navigate('/login')
+    else navigate('/login', { state: { from: location.pathname } })
   }
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Input, Textarea } from '../ui/Form'
@@ -42,6 +42,12 @@ export function SessionFormModal({ open, onClose, groupId, onCreated }: SessionF
     setErrors({})
     setFormError(null)
   }
+
+  // Fresh form on every open, matching the other modals (cancelled drafts don't linger).
+  useEffect(() => {
+    if (open) reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

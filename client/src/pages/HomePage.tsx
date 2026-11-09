@@ -96,7 +96,7 @@ export default function HomePage() {
               <h2 className="text-lg font-semibold text-slate-900">My groups</h2>
               <Link
                 to="/groups"
-                className="inline-flex items-center gap-0.5 rounded-md text-sm font-medium text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                className="inline-flex min-h-[40px] items-center gap-0.5 rounded-md px-1 text-sm font-medium text-brand-700 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
               >
                 Browse all
                 <ChevronRightIcon size={14} />

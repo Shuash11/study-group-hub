@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { signIn, signUp } from '../services/auth'
 import { Button } from '../components/ui/Button'
@@ -37,9 +37,12 @@ export default function AuthPage() {
   const [submitting, setSubmitting] = useState(false)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false)
 
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? '/'
+
   useEffect(() => {
-    if (!loading && user) navigate('/', { replace: true })
-  }, [loading, user, navigate])
+    if (!loading && user) navigate(from, { replace: true })
+  }, [loading, user, navigate, from])
 
   function validate(): boolean {
     const errors: typeof fieldErrors = {}
@@ -72,7 +75,7 @@ export default function AuthPage() {
         const session = await signIn(email.trim(), password)
         applySession(session)
       }
-      navigate('/', { replace: true })
+      navigate(from, { replace: true })
     } catch (err) {
       setFormError(
         friendlyAuthError(
@@ -137,7 +140,7 @@ export default function AuthPage() {
                 type="button"
                 aria-pressed={mode === m}
                 onClick={() => switchMode(m)}
-                className={`min-h-[36px] rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transition-none ${
+                className={`flex min-h-[40px] items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transition-none ${
                   mode === m
                     ? 'bg-white text-slate-900 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700'
@@ -184,6 +187,16 @@ export default function AuthPage() {
             </Button>
           </form>
         </div>
+
+        <p className="mt-4 text-center text-sm text-slate-500">
+          Just browsing?{' '}
+          <Link
+            to="/groups"
+            className="rounded-md font-medium text-brand-700 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          >
+            View study groups
+          </Link>
+        </p>
       </div>
     </main>
   )

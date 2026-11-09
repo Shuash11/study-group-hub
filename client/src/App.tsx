@@ -9,6 +9,14 @@ import GroupsPage from './pages/GroupsPage'
 import GroupDetailPage from './pages/GroupDetailPage'
 import ProfilePage from './pages/ProfilePage'
 
+/** Signed-out visitors land on the public group browse instead of a login wall. */
+function HomeRoute() {
+  const { session, loading } = useAuth()
+  if (loading) return <FullPageSpinner />
+  if (!session) return <Navigate to="/groups" replace />
+  return <Layout><HomePage /></Layout>
+}
+
 /** Gates personal areas; group browsing stays public for signed-out visitors. */
 function RequireAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
@@ -24,14 +32,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage />} />
-      <Route
-        path="/"
-        element={
-          <RequireAuth>
-            <HomePage />
-          </RequireAuth>
-        }
-      />
+      <Route path="/" element={<HomeRoute />} />
       {/* Public: visitors can browse/search groups; personal data stays gated. */}
       <Route
         path="/groups"
