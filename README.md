@@ -76,10 +76,19 @@ cd client
 SUPABASE_SERVICE_KEY=<service_role key> WRITE_DEMO_CREDS=1 node scripts/seed-and-verify.mjs
 ```
 
-## Deploy (frontend)
+## Deploy (frontend) — GitHub Pages ✅ live
 
-1. Push this repo to GitHub.
-2. Import it on [Vercel](https://vercel.com) or [Netlify](https://netlify.com).
-3. Build command `npm run build`, root directory `client`.
-4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the dashboard's environment
-   variables — then the deployed site talks to the same live database.
+**Live URL: https://shuash11.github.io/study-group-hub/**
+
+Deploys automatically on every push to `main` via `.github/workflows/deploy.yml`:
+
+- Vite `base` is `/study-group-hub/` and the router uses `import.meta.env.BASE_URL`,
+  so assets and routes work under the Pages subpath.
+- A build-time copy of `index.html` to `404.html` makes deep links
+  (e.g. `/groups/<id>`) load the SPA (GitHub Pages serves it with a 404 status;
+  browsers render it normally).
+- `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are repo Actions secrets baked in
+  at build time (public-by-design values — RLS protects the data).
+- First-time setup note: enabling Pages on a repo that never had it must be done
+  once by the repo owner (`gh api -X POST repos/:owner/:repo/pages -f build_type=workflow`)
+  — the workflow token can't create the site itself.

@@ -160,5 +160,10 @@ Both reviews read pre-fix code; migrations 0003/0004 and the client updates reso
   browsing, error/empty-state fixes. E2E script expanded to 24 checks — ALL PASSED against the
   live database. Lint 0 errors; production build clean. Findings disposition table above.
 - 2026-11-10: WP10 release done (user-authorized). GitHub repo created with CI automation,
-  main + v0.1.0 pushed, all workflow runs green — see Release record above. Vercel deploy
-  deliberately NOT performed (user instruction). Project complete.
+  main + v0.1.0 pushed, all workflow runs green — see Release record above.
+- 2026-11-10: GitHub Pages deployment added and verified live
+  (https://shuash11.github.io/study-group-hub/). Fixes along the way: Pages site enabled
+  once via owner API (workflow token can't create it), and Supabase env vars added as
+  repo Actions secrets injected at build time — without them the bundle would have
+  crashed at runtime despite CI passing. Verified: homepage 200, SPA fallback serves
+  the app on deep links, deployed bundle contains the Supabase wiring.
