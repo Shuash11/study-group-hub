@@ -1,11 +1,314 @@
-import { useParams } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import {
+  deleteGroup,
+  getGroup,
+  getMembers,
+  getMyMembership,
+  leaveGroup,
+} from '../services/groups'
+import type { Group, GroupRole, MemberWithProfile } from '../lib/database.types'
+import { GroupFormModal } from '../components/groups/GroupFormModal'
+import { JoinGroupModal } from '../components/groups/JoinGroupModal'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { ErrorBanner, EmptyState, SkeletonList } from '../components/ui/Feedback'
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  TicketIcon,
+  TrashIcon,
+  UsersIcon,
+} from '../components/icons'
+import { formatDate, initials } from '../lib/format'
 
 export default function GroupDetailPage() {
   const { groupId } = useParams()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  const [group, setGroup] = useState<Group | null>(null)
+  const [members, setMembers] = useState<MemberWithProfile[]>([])
+  const [myRole, setMyRole] = useState<GroupRole | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [showLeave, setShowLeave] = useState(false)
+  const [showJoin, setShowJoin] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!groupId || !user) return
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const [g, m, role] = await Promise.all([
+        getGroup(groupId),
+        getMembers(groupId),
+        getMyMembership(groupId, user.id),
+      ])
+      setGroup(g)
+      setMembers(m)
+      setMyRole(role)
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'Failed to load this group.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }, [groupId, user])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  async function copyCode() {
+    if (!group) return
+    try {
+      await navigator.clipboard.writeText(group.join_code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard unavailable — the code is visible on screen anyway.
+    }
+  }
+
+  const isOwner = myRole === 'owner'
+  const isMember = myRole !== null
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <SkeletonList rows={3} />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-4">
+        <BackLink />
+        <ErrorBanner message={loadError} onRetry={load} />
+      </div>
+    )
+  }
+
+  if (!group) {
+    return (
+      <div className="space-y-4">
+        <BackLink />
+        <EmptyState
+          icon={<UsersIcon size={28} />}
+          title="Group not found"
+          description="This group may have been deleted."
+          action={<Button variant="secondary" onClick={() => navigate('/groups')}>Back to groups</Button>}
+        />
+      </div>
+    )
+  }
+
+  const owner = members.find((m) => m.role === 'owner')
+  const full = members.length >= group.max_members
+
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Group</h1>
-      <p className="mt-1 text-sm text-slate-500">Group ID: {groupId}</p>
+    <div className="space-y-6">
+      <BackLink />
+
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">
+                {group.name}
+              </h1>
+              <Badge variant="brand">{group.course_code}</Badge>
+              {isOwner && <Badge variant="success">You own this group</Badge>}
+            </div>
+            {group.description && (
+              <p className="mt-2 max-w-2xl text-sm text-slate-600">{group.description}</p>
+            )}
+            <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1">
+                <UsersIcon size={14} />
+                {members.length}/{group.max_members} members
+                {full && !isMember && ' · full'}
+              </span>
+              <span>Created {formatDate(group.created_at)}</span>
+              {owner?.profiles?.full_name && <span>Owner: {owner.profiles.full_name}</span>}
+            </p>
+          </div>
+
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            {isMember ? (
+              <>
+                {isOwner ? (
+                  <>
+                    <Button variant="secondary" size="sm" onClick={() => setShowEdit(true)}>
+                      <PencilIcon size={15} />
+                      Edit group
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={() => setShowDelete(true)}>
+                      <TrashIcon size={15} />
+                      Delete
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="secondary" size="sm" onClick={() => setShowLeave(true)}>
+                    Leave group
+                  </Button>
+                )}
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  aria-label={`Copy invite code ${group.join_code}`}
+                  className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border border-dashed border-brand-300 bg-brand-50 px-3 py-1.5 font-mono text-sm font-semibold tracking-[0.2em] text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transition-none"
+                >
+                  <TicketIcon size={15} className="tracking-normal" />
+                  {group.join_code}
+                  <span className="font-sans text-xs font-medium normal-case tracking-normal text-brand-700">
+                    {copied ? 'Copied!' : 'Copy'}
+                  </span>
+                </button>
+              </>
+            ) : (
+              <Button onClick={() => setShowJoin(true)} disabled={full}>
+                {full ? 'Group is full' : 'Join group'}
+              </Button>
+            )}
+          </div>
+        </div>
+        {actionError && (
+          <div className="mt-4">
+            <ErrorBanner message={actionError} onRetry={() => setActionError(null)} />
+          </div>
+        )}
+      </Card>
+
+      <div className="grid items-start gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <h2 className="text-lg font-semibold text-slate-900">Members</h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            {members.length} of {group.max_members} spots filled
+          </p>
+          <ul className="mt-4 list-none space-y-3 p-0">
+            {members.map((m) => (
+              <li key={m.user_id} className="flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-800"
+                >
+                  {initials(m.profiles?.full_name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-900">
+                    {m.profiles?.full_name || 'Unnamed member'}
+                    {m.user_id === user?.id && (
+                      <span className="ml-1.5 text-xs font-normal text-slate-500">(you)</span>
+                    )}
+                  </span>
+                  {m.profiles?.course && (
+                    <span className="block truncate text-xs text-slate-500">
+                      {m.profiles.course}
+                    </span>
+                  )}
+                </span>
+                {m.role === 'owner' && <Badge variant="brand">Owner</Badge>}
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <h2 className="text-lg font-semibold text-slate-900">Study sessions</h2>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Scheduled group study sessions will appear here.
+          </p>
+          <div className="mt-4">
+            {isMember ? (
+              <EmptyState
+                icon={<UsersIcon size={24} />}
+                title="No sessions scheduled yet"
+                description="Session scheduling is coming together — check back after the next update."
+              />
+            ) : (
+              <EmptyState
+                icon={<UsersIcon size={24} />}
+                title="Members-only area"
+                description="Join this group to see and schedule study sessions."
+              />
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <GroupFormModal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        initial={group}
+        onSaved={(updated) => setGroup(updated)}
+      />
+      <JoinGroupModal
+        open={showJoin}
+        onClose={() => setShowJoin(false)}
+        onJoined={() => load()}
+      />
+      <ConfirmDialog
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        title="Delete this group?"
+        message={`“${group.name}” and its sessions will be permanently removed for all members. This cannot be undone.`}
+        confirmLabel="Delete group"
+        danger
+        onConfirm={async () => {
+          try {
+            await deleteGroup(group.id)
+            navigate('/groups', { replace: true })
+          } catch (err) {
+            setShowDelete(false)
+            setActionError(
+              err instanceof Error ? err.message : 'Could not delete the group.',
+            )
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={showLeave}
+        onClose={() => setShowLeave(false)}
+        title="Leave this group?"
+        message="You'll stop seeing its sessions and will need a new invite to rejoin."
+        confirmLabel="Leave group"
+        danger
+        onConfirm={async () => {
+          if (!user) return
+          try {
+            await leaveGroup(group.id, user.id)
+            navigate('/groups', { replace: true })
+          } catch (err) {
+            setShowLeave(false)
+            setActionError(
+              err instanceof Error ? err.message : 'Could not leave the group.',
+            )
+          }
+        }}
+      />
     </div>
+  )
+}
+
+function BackLink() {
+  return (
+    <Link
+      to="/groups"
+      className="inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+    >
+      <ArrowLeftIcon size={16} />
+      All groups
+    </Link>
   )
 }

@@ -39,7 +39,7 @@ export async function listMyGroups(userId: string): Promise<GroupWithRole[]> {
     .eq('user_id', userId)
   if (error) throw error
 
-  const rows = (data ?? []) as Array<{ role: string; groups: Group | null }>
+  const rows = (data ?? []) as unknown as Array<{ role: string; groups: Group | null }>
   return rows
     .filter((row) => row.groups !== null)
     .map((row) => ({ ...(row.groups as Group), role: row.role as GroupRole }))
