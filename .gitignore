@@ -3,6 +3,8 @@ dist/
 .env
 .env.*
 !.env.example
+# supabase cli-generated credentials — never commit
+.supabase-db-password.txt
 .DS_Store
 Thumbs.db
 

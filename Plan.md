@@ -56,7 +56,7 @@ Trigger: new auth user → profile row. Trigger: new group → owner membership 
 | # | Package | Owner | Depends on | Status |
 |---|---|---|---|---|
 | WP1 | Scaffold Vite+React+TS+Tailwind, supabase client, repo init | Lead (direct) | — | Done |
-| WP2 | Supabase cloud project created; schema/RLS migration applied | User + Lead | user account | Waiting on user |
+| WP2 | Supabase cloud project created; schema/RLS migration applied | User + Lead | user account | Done |
 | WP3 | Auth + profiles (signup/login/logout, profile edit, DB trigger) | Lead / Implementer | WP2 | Pending |
 | WP4 | Groups: create, browse, search, join by code, leave, member list | Lead / Implementer | WP3 | Pending |
 | WP5 | Sessions + RSVPs | Lead / Implementer | WP4 | Pending |
@@ -90,3 +90,11 @@ are delegated to Implementer later, record session IDs, scope, and status here.
 - 2026-11-09: WP1 done — Vite+React+TS+Tailwind scaffolded in `client/`, supabase client wired,
   `.env.example` created, full schema + RLS in `supabase/migrations/0001_initial_schema.sql`.
   Waiting on user: Supabase cloud project (URL + anon key) to start WP2/WP3.
+- 2026-11-09: WP2 done — Supabase project `jdisshdaajfbwafifhqv` (ap-southeast-1, ACTIVE_HEALTHY)
+  created via CLI using the user's logged-in token. DB password stored in gitignored
+  `.supabase-db-password.txt`. Migration 0001 applied via `supabase db push --db-url` (pooler
+  connection; `link` is blocked by legacy-API deprecation on CLI v2.115). Fixed migration
+  ordering bug: `is_group_member()` moved after `group_members` (Postgres validates SQL function
+  bodies at creation). Verified all 5 tables via REST with anon key: profiles, groups,
+  group_members, study_sessions, session_rsvps → all HTTP 200. `client/.env.local` written.
+  Next: WP3 auth + profiles UI.

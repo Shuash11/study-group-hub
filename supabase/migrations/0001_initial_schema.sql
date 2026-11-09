@@ -27,22 +27,6 @@ create policy "Users can update their own profile"
   on public.profiles for update using (auth.uid() = id);
 
 -- ------------------------------------------------------------
--- helper: is the current user a member of group g?
--- ------------------------------------------------------------
-create or replace function public.is_group_member(g uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.group_members
-    where group_id = g and user_id = auth.uid()
-  );
-$$;
-
--- ------------------------------------------------------------
 -- groups
 -- ------------------------------------------------------------
 create table public.groups (
@@ -96,6 +80,23 @@ create policy "Group owners manage member roles"
   on public.group_members for update using (
     exists (select 1 from public.groups g where g.id = group_id and g.owner_id = auth.uid())
   );
+
+-- ------------------------------------------------------------
+-- helper: is the current user a member of group g?
+-- (defined after group_members exists so Postgres can validate the body)
+-- ------------------------------------------------------------
+create or replace function public.is_group_member(g uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.group_members
+    where group_id = g and user_id = auth.uid()
+  );
+$$;
 
 -- ------------------------------------------------------------
 -- study_sessions: scheduled sessions per group
