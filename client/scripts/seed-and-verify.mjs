@@ -313,6 +313,38 @@ async function runE2E() {
   const { error: fullError } = await avaClient.rpc('join_group_by_code', { p_code: code })
   check('joining a full group is rejected by the RPC (capacity)', !!fullError && fullError.message.includes('full'), fullError?.message)
 
+  // 7b. Owner member management (0005): removal + RSVP cleanup + protections.
+  const { error: removeError } = await client
+    .from('group_members')
+    .delete()
+    .eq('group_id', group.id)
+    .eq('user_id', checkerId)
+  check('group owner can remove a member (0005)', !removeError, removeError?.message)
+
+  const { data: checkerRowAfterRemoval } = await checkerClient
+    .from('group_members').select('user_id').eq('group_id', group.id).eq('user_id', checkerId).maybeSingle()
+  check('removed member loses membership', checkerRowAfterRemoval === null)
+
+  const { data: rsvpsAfterRemoval } = await client
+    .from('session_rsvps').select('user_id').eq('session_id', session.id)
+  check('removed member RSVPs cleaned up (0004 trigger)', (rsvpsAfterRemoval ?? []).length === 0, `rows: ${(rsvpsAfterRemoval ?? []).length}`)
+
+  const { data: groupAfterRemoval } = await client
+    .from('groups').select('member_count').eq('id', group.id).maybeSingle()
+  check('member_count updates after removal', groupAfterRemoval?.member_count === 1, `count: ${groupAfterRemoval?.member_count}`)
+
+  const { data: nonOwnerRemoveAttempt } = await checkerClient
+    .from('group_members').delete().eq('group_id', group.id).eq('user_id', e2eUser.id).select()
+  check('non-owner cannot remove members (RLS)', (nonOwnerRemoveAttempt ?? []).length === 0)
+
+  const { data: rejoinedId, error: rejoinError } = await checkerClient
+    .rpc('join_group_by_code', { p_code: code })
+  check('removed member can rejoin with the invite code', rejoinedId === group.id && !rejoinError, rejoinError?.message)
+
+  const { data: removeOwnerAttempt } = await checkerClient
+    .from('group_members').delete().eq('group_id', group.id).eq('user_id', e2eUser.id).select()
+  check('member cannot remove the group owner', (removeOwnerAttempt ?? []).length === 0)
+
   // 8. Roster and profile privacy (0003 #6).
   const { data: anonProfiles } = await fresh().from('profiles').select('*').limit(1)
   check('anon sees no profiles (personal data gated)', (anonProfiles ?? []).length === 0, `rows: ${(anonProfiles ?? []).length}`)

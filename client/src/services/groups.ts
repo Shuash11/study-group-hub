@@ -152,6 +152,20 @@ export async function leaveGroup(groupId: string, userId: string): Promise<void>
 }
 
 /**
+ * Group owners remove plain members (RLS policy 0005). The 0004 trigger cleans
+ * up the removed member's RSVPs automatically.
+ */
+export async function removeMember(groupId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('group_members')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+    .eq('role', 'member')
+  if (error) throw error
+}
+
+/**
  * Joins a group by invite code through the join_group_by_code RPC, which is the
  * only way to become a member: it validates the code, blocks duplicates, and
  * enforces capacity atomically under a row lock. Returns the joined group's id.

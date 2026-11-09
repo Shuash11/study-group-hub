@@ -177,3 +177,8 @@ Both reviews read pre-fix code; migrations 0003/0004 and the client updates reso
   P3 modal aria-labelledby. Deferred by design: P4–P7 (pagination, skip link, password
   recovery — password recovery is a pre-launch item alongside re-enabling email
   confirmation). Deploy run 42722432072 green; live URL re-verified HTTP 200.
+- 2026-11-10: Leader use cases added (user request): per-session attendee list
+  ("Going (n): names / Maybe (n): names") and owner member management — migration 0005
+  (owner may delete member rows only; owner rows protected), Remove button + confirm
+  dialog on the roster, E2E script extended to 31 checks — ALL PASSED. Deployed to
+  GitHub Pages via push.

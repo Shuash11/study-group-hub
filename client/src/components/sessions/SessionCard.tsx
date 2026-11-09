@@ -144,12 +144,28 @@ export function SessionCard({
       </div>
 
       {counts.going + counts.maybe > 0 && (
-        <p className="mt-2 truncate text-xs text-slate-500">
-          {rsvps
-            .filter((r) => r.status === 'going' || r.status === 'maybe')
-            .map((r) => r.profiles?.full_name || 'Someone')
-            .join(', ')}
-        </p>
+        <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+          {counts.going > 0 && (
+            <p className="text-xs text-slate-600">
+              <span className="font-medium text-emerald-700">
+                Going ({counts.going}):
+              </span>{' '}
+              {rsvps
+                .filter((r) => r.status === 'going')
+                .map((r) => r.profiles?.full_name || 'Someone')
+                .join(', ')}
+            </p>
+          )}
+          {counts.maybe > 0 && (
+            <p className="text-xs text-slate-600">
+              <span className="font-medium text-amber-700">Maybe ({counts.maybe}):</span>{' '}
+              {rsvps
+                .filter((r) => r.status === 'maybe')
+                .map((r) => r.profiles?.full_name || 'Someone')
+                .join(', ')}
+            </p>
+          )}
+        </div>
       )}
 
       <ConfirmDialog

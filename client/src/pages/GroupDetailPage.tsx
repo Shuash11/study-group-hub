@@ -8,6 +8,7 @@ import {
   getMembers,
   getMyMembership,
   leaveGroup,
+  removeMember,
 } from '../services/groups'
 import { listSessions } from '../services/sessions'
 import { friendlyDbError } from '../lib/errors'
@@ -55,6 +56,7 @@ export default function GroupDetailPage() {
   const [showLeave, setShowLeave] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
   const [showSessionForm, setShowSessionForm] = useState(false)
+  const [removingMember, setRemovingMember] = useState<MemberWithProfile | null>(null)
 
   // Only the newest load() result is applied (no stale-response races, M4).
   const seqRef = useRef(0)
@@ -283,7 +285,19 @@ export default function GroupDetailPage() {
                         </span>
                       )}
                     </span>
-                    {m.role === 'owner' && <Badge variant="brand">Owner</Badge>}
+                    <span className="flex shrink-0 items-center gap-2">
+                      {m.role === 'owner' && <Badge variant="brand">Owner</Badge>}
+                      {isOwner && m.role === 'member' && (
+                        <button
+                          type="button"
+                          onClick={() => setRemovingMember(m)}
+                          aria-label={`Remove ${m.profiles?.full_name || 'member'} from the group`}
+                          className="inline-flex min-h-[36px] items-center rounded-md px-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 motion-reduce:transition-none"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -371,6 +385,23 @@ export default function GroupDetailPage() {
         onClose={() => setShowSessionForm(false)}
         groupId={group.id}
         onCreated={load}
+      />
+      <ConfirmDialog
+        open={removingMember !== null}
+        onClose={() => setRemovingMember(null)}
+        title={`Remove ${removingMember?.profiles?.full_name || 'this member'}?`}
+        message="They will lose access to the group's sessions and their RSVPs will be deleted. They can rejoin later with the invite code."
+        confirmLabel="Remove member"
+        danger
+        onConfirm={async () => {
+          if (!removingMember || !group) return
+          try {
+            await removeMember(group.id, removingMember.user_id)
+            await load()
+          } catch (err) {
+            setActionError(friendlyDbError(err, 'Could not remove the member.'))
+          }
+        }}
       />
       <ConfirmDialog
         open={showDelete}

@@ -13,7 +13,11 @@ Row Level Security) → deployed frontend.
   course code; join with a 6-character invite code (validated and capacity-checked by the
   database itself); leave; live member lists
 - **Sessions** — schedule study sessions (date/time, duration, location), RSVP
-  *Going / Maybe / Can't go*, see who else is coming; creators can delete sessions
+  *Going / Maybe / Can't go*, see exactly who is going and who is a maybe; creators can
+  delete sessions
+- **Group leader tools** — see the attendee list per session, and manage the roster:
+  remove members (their RSVPs are cleaned up automatically; they can rejoin with the
+  invite code)
 - **Dashboard** — your groups and every upcoming session across them, with your RSVP state
 - **Security** — authorization is enforced by the database itself (Row Level Security), not
   just hidden buttons. Non-members can't see a group's sessions, member roster, or invite
@@ -43,7 +47,7 @@ client/
   scripts/
     seed-and-verify.mjs   seeds demo data + runs 15 end-to-end checks
 supabase/
-  migrations/       versioned SQL schema (0001–0004: tables, RLS policies, triggers, enforced joins)
+  migrations/       versioned SQL schema (0001–0005: tables, RLS policies, triggers, enforced joins, owner member management)
 ```
 
 ## Setup
@@ -66,10 +70,11 @@ supabase/
 ## Demo data & self-check
 
 `client/scripts/seed-and-verify.mjs` seeds three demo students with groups, sessions and
-RSVPs, then runs 24 end-to-end checks — signup → profile trigger → group create + invite
-trigger → RPC join by code → sessions → RSVPs → 14 security negatives (invite-code secrecy,
-capacity enforcement, forged-author rejection, anon lockdown, RSVP cleanup on leave).
-Demo credentials are written to `.demo-credentials.txt` (gitignored).
+RSVPs, then runs 31 end-to-end checks — signup → profile trigger → group create + invite
+trigger → RPC join by code → sessions → RSVPs → leader member management → 18 security
+negatives (invite-code secrecy, capacity enforcement, forged-author rejection, removal
+protections, anon lockdown). Demo credentials are written to `.demo-credentials.txt`
+(gitignored).
 
 ```bash
 cd client
