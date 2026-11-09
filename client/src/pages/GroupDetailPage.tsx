@@ -8,9 +8,17 @@ import {
   getMyMembership,
   leaveGroup,
 } from '../services/groups'
-import type { Group, GroupRole, MemberWithProfile } from '../lib/database.types'
+import { listSessions } from '../services/sessions'
+import type {
+  Group,
+  GroupRole,
+  MemberWithProfile,
+  SessionWithRsvp,
+} from '../lib/database.types'
 import { GroupFormModal } from '../components/groups/GroupFormModal'
 import { JoinGroupModal } from '../components/groups/JoinGroupModal'
+import { SessionCard } from '../components/sessions/SessionCard'
+import { SessionFormModal } from '../components/sessions/SessionFormModal'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
@@ -18,12 +26,13 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ErrorBanner, EmptyState, SkeletonList } from '../components/ui/Feedback'
 import {
   ArrowLeftIcon,
+  CalendarPlusIcon,
   PencilIcon,
   TicketIcon,
   TrashIcon,
   UsersIcon,
 } from '../components/icons'
-import { formatDate, initials } from '../lib/format'
+import { formatDate, isUpcoming, initials } from '../lib/format'
 
 export default function GroupDetailPage() {
   const { groupId } = useParams()
@@ -32,6 +41,7 @@ export default function GroupDetailPage() {
 
   const [group, setGroup] = useState<Group | null>(null)
   const [members, setMembers] = useState<MemberWithProfile[]>([])
+  const [sessions, setSessions] = useState<SessionWithRsvp[]>([])
   const [myRole, setMyRole] = useState<GroupRole | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -41,24 +51,25 @@ export default function GroupDetailPage() {
   const [showDelete, setShowDelete] = useState(false)
   const [showLeave, setShowLeave] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
+  const [showSessionForm, setShowSessionForm] = useState(false)
 
   const load = useCallback(async () => {
     if (!groupId || !user) return
     setLoading(true)
     setLoadError(null)
     try {
-      const [g, m, role] = await Promise.all([
+      const [g, m, role, s] = await Promise.all([
         getGroup(groupId),
         getMembers(groupId),
         getMyMembership(groupId, user.id),
+        listSessions(groupId, user.id),
       ])
       setGroup(g)
       setMembers(m)
       setMyRole(role)
+      setSessions(s)
     } catch (err) {
-      setLoadError(
-        err instanceof Error ? err.message : 'Failed to load this group.',
-      )
+      setLoadError(err instanceof Error ? err.message : 'Failed to load this group.')
     } finally {
       setLoading(false)
     }
@@ -83,11 +94,7 @@ export default function GroupDetailPage() {
   const isMember = myRole !== null
 
   if (loading) {
-    return (
-      <div className="space-y-4">
-        <SkeletonList rows={3} />
-      </div>
-    )
+    return <SkeletonList rows={4} />
   }
 
   if (loadError) {
@@ -107,7 +114,11 @@ export default function GroupDetailPage() {
           icon={<UsersIcon size={28} />}
           title="Group not found"
           description="This group may have been deleted."
-          action={<Button variant="secondary" onClick={() => navigate('/groups')}>Back to groups</Button>}
+          action={
+            <Button variant="secondary" onClick={() => navigate('/groups')}>
+              Back to groups
+            </Button>
+          }
         />
       </div>
     )
@@ -115,6 +126,8 @@ export default function GroupDetailPage() {
 
   const owner = members.find((m) => m.role === 'owner')
   const full = members.length >= group.max_members
+  const upcoming = sessions.filter((s) => isUpcoming(s.starts_at))
+  const past = [...sessions.filter((s) => !isUpcoming(s.starts_at))].reverse()
 
   return (
     <div className="space-y-6">
@@ -225,23 +238,61 @@ export default function GroupDetailPage() {
         </Card>
 
         <Card className="lg:col-span-3">
-          <h2 className="text-lg font-semibold text-slate-900">Study sessions</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Scheduled group study sessions will appear here.
-          </p>
-          <div className="mt-4">
-            {isMember ? (
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Study sessions</h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                {isMember
+                  ? 'RSVP so your group knows who is coming.'
+                  : 'Join this group to see and schedule sessions.'}
+              </p>
+            </div>
+            {isMember && (
+              <Button size="sm" onClick={() => setShowSessionForm(true)}>
+                <CalendarPlusIcon size={15} />
+                Schedule session
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {sessions.length === 0 ? (
               <EmptyState
-                icon={<UsersIcon size={24} />}
-                title="No sessions scheduled yet"
-                description="Session scheduling is coming together — check back after the next update."
+                icon={<CalendarPlusIcon size={24} />}
+                title={isMember ? 'No sessions scheduled yet' : 'Members-only area'}
+                description={
+                  isMember
+                    ? 'Schedule the first session and invite your group.'
+                    : 'Sessions are visible to group members only.'
+                }
+                action={
+                  isMember ? (
+                    <Button size="sm" onClick={() => setShowSessionForm(true)}>
+                      Schedule the first session
+                    </Button>
+                  ) : undefined
+                }
               />
             ) : (
-              <EmptyState
-                icon={<UsersIcon size={24} />}
-                title="Members-only area"
-                description="Join this group to see and schedule study sessions."
-              />
+              <>
+                {upcoming.length > 0 && (
+                  <ul className="list-none space-y-3 p-0">
+                    {upcoming.map((s) => (
+                      <SessionCard key={s.id} session={s} onChanged={load} />
+                    ))}
+                  </ul>
+                )}
+                {past.length > 0 && (
+                  <>
+                    <h3 className="pt-2 text-sm font-semibold text-slate-500">Past sessions</h3>
+                    <ul className="list-none space-y-3 p-0">
+                      {past.map((s) => (
+                        <SessionCard key={s.id} session={s} onChanged={load} />
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </>
             )}
           </div>
         </Card>
@@ -258,6 +309,12 @@ export default function GroupDetailPage() {
         onClose={() => setShowJoin(false)}
         onJoined={() => load()}
       />
+      <SessionFormModal
+        open={showSessionForm}
+        onClose={() => setShowSessionForm(false)}
+        groupId={group.id}
+        onCreated={load}
+      />
       <ConfirmDialog
         open={showDelete}
         onClose={() => setShowDelete(false)}
@@ -271,9 +328,7 @@ export default function GroupDetailPage() {
             navigate('/groups', { replace: true })
           } catch (err) {
             setShowDelete(false)
-            setActionError(
-              err instanceof Error ? err.message : 'Could not delete the group.',
-            )
+            setActionError(err instanceof Error ? err.message : 'Could not delete the group.')
           }
         }}
       />
@@ -291,9 +346,7 @@ export default function GroupDetailPage() {
             navigate('/groups', { replace: true })
           } catch (err) {
             setShowLeave(false)
-            setActionError(
-              err instanceof Error ? err.message : 'Could not leave the group.',
-            )
+            setActionError(err instanceof Error ? err.message : 'Could not leave the group.')
           }
         }}
       />

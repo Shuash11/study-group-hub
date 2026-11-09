@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '../ui/Badge'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { TrashIcon } from '../icons'
+import { MapPinIcon, TrashIcon } from '../icons'
 import { useAuth } from '../../context/AuthContext'
 import { deleteSession, listRsvps, setRsvp } from '../../services/sessions'
 import { formatDateTime, formatDuration, isUpcoming } from '../../lib/format'
@@ -96,7 +96,10 @@ export function SessionCard({
             {formatDateTime(session.starts_at)} · {formatDuration(session.duration_minutes)}
           </p>
           {session.location && (
-            <p className="mt-0.5 text-sm text-slate-500">📍 {session.location}</p>
+            <p className="mt-0.5 flex items-center gap-1 text-sm text-slate-500">
+              <MapPinIcon size={14} className="shrink-0" />
+              {session.location}
+            </p>
           )}
           {session.details && (
             <p className="mt-1 text-sm text-slate-600">{session.details}</p>
