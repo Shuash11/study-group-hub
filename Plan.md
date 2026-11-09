@@ -57,13 +57,13 @@ Trigger: new auth user → profile row. Trigger: new group → owner membership 
 |---|---|---|---|---|
 | WP1 | Scaffold Vite+React+TS+Tailwind, supabase client, repo init | Lead (direct) | — | Done |
 | WP2 | Supabase cloud project created; schema/RLS migration applied | User + Lead | user account | Done |
-| WP3 | Auth + profiles (signup/login/logout, profile edit, DB trigger) | Lead / Implementer | WP2 | Pending |
-| WP4 | Groups: create, browse, search, join by code, leave, member list | Lead / Implementer | WP3 | Pending |
-| WP5 | Sessions + RSVPs | Lead / Implementer | WP4 | Pending |
-| WP6 | Home dashboard (my groups, upcoming sessions) | Lead / Implementer | WP5 | Pending |
-| WP7 | Stretch: notes, activity feed, dark mode | Lead | WP6 | Optional |
-| WP8 | Polish, responsive, seed demo data, deploy to public URL | Lead | WP6 | Pending |
-| WP9 | Verification: functional flows, RLS checks, security review | Lead + QA + Security Reviewer | WP8 | Pending |
+| WP3 | Auth + profiles (signup/login/logout, profile edit, DB trigger) | Lead / Implementer | WP2 | Done |
+| WP4 | Groups: create, browse, search, join by code, leave, member list | Lead / Implementer | WP3 | Done |
+| WP5 | Sessions + RSVPs | Lead / Implementer | WP4 | Done |
+| WP6 | Home dashboard (my groups, upcoming sessions) | Lead / Implementer | WP5 | Done |
+| WP7 | Stretch: notes, activity feed, dark mode | Lead | WP6 | Deferred (optional) |
+| WP8 | Polish, responsive, seed demo data, deploy to public URL | Lead | WP6 | Demo data done; deploy needs user's Vercel/Netlify account |
+| WP9 | Verification: functional flows, RLS checks, security review | Lead + QA + Security Reviewer | WP8 | E2E passed; reviews running |
 
 ## Security requirements (mandatory triggers apply)
 
@@ -81,8 +81,12 @@ Trigger: new auth user → profile row. Trigger: new group → owner membership 
 
 ## Delegation ledger
 
-Direct lead execution so far; no background assignments. If feature chunks (WP4–WP6)
-are delegated to Implementer later, record session IDs, scope, and status here.
+| Task | Specialist | Session ID | Mode | Status |
+|---|---|---|---|---|
+| Code review (WP9) | reviewer | ses_e3f67592dffeqcONpsl9Ksb0Ui | background | Running |
+| Security review (WP9) | security-reviewer | ses_e3f67592cffeIGNMuZxa03Yf8x | background | Running |
+
+Direct lead execution for increments A–D; no other background assignments.
 
 ## Progress log
 
@@ -97,4 +101,13 @@ are delegated to Implementer later, record session IDs, scope, and status here.
   ordering bug: `is_group_member()` moved after `group_members` (Postgres validates SQL function
   bodies at creation). Verified all 5 tables via REST with anon key: profiles, groups,
   group_members, study_sessions, session_rsvps → all HTTP 200. `client/.env.local` written.
-  Next: WP3 auth + profiles UI.
+- 2026-11-09: Increments A–D built and committed (app shell/auth, groups, sessions+RSVPs+dashboard,
+  profile editor). Migration 0002 pushed to cloud (member-role-only self-insert).
+- 2026-11-09: Email confirmation disabled via management API (mailer_autoconfirm=true) —
+  public signups now return sessions immediately; free-tier email rate limits no longer affect signups.
+- 2026-11-09: WP9 functional verification PASSED — seed-and-verify.mjs: 15/15 checks green
+  (signup, profile trigger, group create + owner trigger, session create, join by code, RSVP,
+  RLS negatives: non-member blocked from sessions, self-insert-as-owner rejected, non-owner
+  update blocked, anon locked out; E2E user cleaned up). Demo data seeded: 3 students,
+  3 groups, 4 sessions, RSVPs. Demo creds in gitignored .demo-credentials.txt.
+- 2026-11-09: README.md written. Reviewer + Security Reviewer launched in background (see ledger).
