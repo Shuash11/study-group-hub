@@ -13,7 +13,7 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 /** How long the exit animation runs before unmounting (ms). */
-const EXIT_MS = 200
+const EXIT_MS = 360
 
 /**
  * Accessible dialog: Escape/backdrop to close, focus moved into the panel,
@@ -108,7 +108,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       role="presentation"
     >
       <div
-        className={`absolute inset-0 bg-slate-900/50 transition-opacity duration-200 motion-reduce:transition-none ${
+        className={`absolute inset-0 bg-slate-900/50 transition-opacity duration-300 motion-reduce:transition-none ${
           shown ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={() => onCloseRef.current()}
@@ -120,7 +120,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-lg outline-none transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+        className={`relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-lg outline-none transition-all duration-[350ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
           shown
             ? 'translate-y-0 scale-100 opacity-100'
             : 'translate-y-4 scale-[0.97] opacity-0'

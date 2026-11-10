@@ -53,7 +53,7 @@ body {
     rgba(255, 255, 255, 0.6),
     transparent
   );
-  animation: skeleton-shimmer 1.6s infinite;
+  animation: skeleton-shimmer 2s infinite;
 }
 
 /* Reduced motion: keep state feedback (colors), drop movement. */

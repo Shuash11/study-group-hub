@@ -42,7 +42,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       disabled={disabled || loading}
-      className={`inline-flex min-h-[40px] items-center justify-center rounded-lg font-medium transition duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex min-h-[40px] items-center justify-center rounded-lg font-medium transition duration-200 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
     >
       {loading && <Spinner size={16} className="mr-1.5" />}
