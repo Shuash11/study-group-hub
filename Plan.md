@@ -186,6 +186,15 @@ Both reviews read pre-fix code; migrations 0003/0004 and the client updates reso
   pulse; dialogs animate in AND out (slide-up + scale + fading backdrop, reduced-motion
   instant); press feedback (active scale) on buttons, RSVP pills, icon buttons; group
   cards get hover lift. Deploy run 42766233616 green.
+- 2026-11-10: Session reminders (user request) — 30 min + 5 min before each session, via
+  the Web Notifications API. App is now an installable PWA: manifest, service worker
+  (notification display/click only, no asset caching), programmatically generated brand
+  icons (pure-Node PNG encoder, image credits unavailable). Enable button on the
+  dashboard (user-gesture permission prompt); ReminderWatcher polls upcoming sessions
+  every 30s, deduplicates per session+threshold in localStorage. Known limit:
+  notifications fire while the app/PWA is open; true background push needs a push
+  server (VAPID + scheduled jobs) — future work. Deploy 42789362614 green; manifest,
+  sw.js and icons verified live (HTTP 200).
 - 2026-11-10: UI iteration (user feedback): session attendee list redesigned — avatar chips
   on the card + "Who's coming" panel (Going/Maybe/Can't-go sections with profile rows)
   instead of inline text; sign-out now confirms before signing out (consistency with all
