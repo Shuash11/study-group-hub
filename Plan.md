@@ -182,3 +182,7 @@ Both reviews read pre-fix code; migrations 0003/0004 and the client updates reso
   (owner may delete member rows only; owner rows protected), Remove button + confirm
   dialog on the roster, E2E script extended to 31 checks — ALL PASSED. Deployed to
   GitHub Pages via push.
+- 2026-11-10: UI iteration (user feedback): session attendee list redesigned — avatar chips
+  on the card + "Who's coming" panel (Going/Maybe/Can't-go sections with profile rows)
+  instead of inline text; sign-out now confirms before signing out (consistency with all
+  destructive actions). Deploy run 42725675333 green; live HTTP 200.
