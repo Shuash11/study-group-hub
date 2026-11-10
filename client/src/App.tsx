@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from './context/AuthContext'
 import { FullPageSpinner } from './components/ui/Feedback'
+import { ReminderWatcher } from './components/reminders/ReminderWatcher'
 import { Layout } from './components/layout/Layout'
 import AuthPage from './pages/AuthPage'
 import HomePage from './pages/HomePage'
@@ -30,7 +31,9 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ReminderWatcher />
+      <Routes>
       <Route path="/login" element={<AuthPage />} />
       <Route path="/" element={<HomeRoute />} />
       {/* Public: visitors can browse/search groups; personal data stays gated. */}
@@ -59,6 +62,7 @@ export default function App() {
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }

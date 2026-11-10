@@ -11,6 +11,7 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { ErrorBanner, EmptyState, SkeletonList } from '../components/ui/Feedback'
 import {
+  BellIcon,
   CalendarPlusIcon,
   ChevronRightIcon,
   MapPinIcon,
@@ -19,6 +20,11 @@ import {
   UsersIcon,
 } from '../components/icons'
 import { formatDateTime, initials } from '../lib/format'
+import {
+  enableReminders,
+  getReminderPermission,
+  notificationsSupported,
+} from '../lib/reminders'
 
 const RSVP_LABEL: Record<string, string> = {
   going: 'Going',
@@ -36,6 +42,7 @@ export default function HomePage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
+  const [reminderPermission, setReminderPermission] = useState(getReminderPermission())
 
   const load = useCallback(() => {
     if (!user) return
@@ -79,6 +86,30 @@ export default function HomePage() {
           </Button>
         </div>
       </div>
+
+      {reminderPermission === 'granted' && (
+        <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+          <BellIcon size={13} />
+          Session reminders on — we'll ping you 30 and 5 minutes before each session
+        </p>
+      )}
+
+      {notificationsSupported() && reminderPermission === 'default' && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-brand-900">Never miss a session</p>
+            <p className="mt-0.5 text-xs text-brand-800">
+              Get a notification 30 and 5 minutes before each study session starts.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={async () => setReminderPermission(await enableReminders())}
+          >
+            Enable reminders
+          </Button>
+        </div>
+      )}
 
       {error ? (
         <div className="mt-6">

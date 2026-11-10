@@ -14,3 +14,15 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Service worker: enables web notifications and install-to-home-screen.
+// Intentionally no asset caching — GitHub Pages CDN handles that.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      .catch(() => {
+        /* optional — the app works without it (notifications use the page API) */
+      })
+  })
+}

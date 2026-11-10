@@ -1,0 +1,35 @@
+﻿{
+    "name":  "Study Group Hub",
+    "short_name":  "StudyHub",
+    "description":  "Find, join, and run study groups for your courses.",
+    "start_url":  "/study-group-hub/",
+    "scope":  "/study-group-hub/",
+    "display":  "standalone",
+    "background_color":  "#f8fafc",
+    "theme_color":  "#4f46e5",
+    "icons":  [
+                  {
+                      "type":  "image/svg+xml",
+                      "sizes":  "any",
+                      "src":  "/study-group-hub/favicon.svg"
+                  },
+                  {
+                      "purpose":  "any",
+                      "type":  "image/png",
+                      "sizes":  "192x192",
+                      "src":  "/study-group-hub/icons/icon-192.png"
+                  },
+                  {
+                      "purpose":  "any",
+                      "type":  "image/png",
+                      "sizes":  "512x512",
+                      "src":  "/study-group-hub/icons/icon-512.png"
+                  },
+                  {
+                      "purpose":  "maskable",
+                      "type":  "image/png",
+                      "sizes":  "512x512",
+                      "src":  "/study-group-hub/icons/icon-512.png"
+                  }
+              ]
+}
