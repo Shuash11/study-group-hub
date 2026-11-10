@@ -11,7 +11,7 @@ export function GroupCard({ group, role }: { group: Group; role?: GroupRole }) {
       to={`/groups/${group.id}`}
       className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
     >
-      <Card className="h-full transition-shadow duration-150 hover:shadow-md motion-reduce:transition-none">
+      <Card className="h-full transition duration-150 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.99] motion-reduce:transition-none">
         <div className="flex items-start justify-between gap-2">
           <h2 className="leading-snug font-semibold text-slate-900">{group.name}</h2>
           {role === 'owner' && <Badge variant="brand">Owner</Badge>}

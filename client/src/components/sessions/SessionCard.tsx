@@ -113,7 +113,7 @@ export function SessionCard({
             type="button"
             onClick={() => setShowDelete(true)}
             aria-label={`Delete session ${session.title}`}
-            className="flex h-10 w-10 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 motion-reduce:transition-none"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 active:scale-90 motion-reduce:transition-none"
           >
             <TrashIcon size={16} />
           </button>
@@ -135,7 +135,7 @@ export function SessionCard({
                 aria-pressed={active}
                 disabled={saving}
                 onClick={() => toggle(opt.value)}
-                className={`min-h-[40px] rounded-full border px-4 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-60 motion-reduce:transition-none ${
+                className={`min-h-[40px] rounded-full border px-4 py-2 text-xs font-medium transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-60 motion-reduce:transition-none ${
                   active
                     ? opt.activeClass
                     : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'

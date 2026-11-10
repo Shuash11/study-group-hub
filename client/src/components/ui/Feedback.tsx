@@ -21,7 +21,7 @@ export function FullPageSpinner({ label = 'Loading…' }: { label?: string }) {
 }
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div aria-hidden="true" className={`animate-pulse rounded-md bg-slate-200 ${className}`} />
+  return <div aria-hidden="true" className={`skeleton rounded-md ${className}`} />
 }
 
 /** Placeholder rows while a list loads. */

@@ -28,6 +28,34 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Skeleton shimmer: gradient sweep over a static block.
+   Reduced motion: the global rule below freezes the sweep -> plain block. */
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-slate-200);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
+  animation: skeleton-shimmer 1.6s infinite;
+}
+
 /* Reduced motion: keep state feedback (colors), drop movement. */
 @media (prefers-reduced-motion: reduce) {
   *,

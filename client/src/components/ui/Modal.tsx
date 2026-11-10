@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { XIcon } from '../icons'
 
@@ -12,24 +12,61 @@ interface ModalProps {
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
+/** How long the exit animation runs before unmounting (ms). */
+const EXIT_MS = 200
+
 /**
  * Accessible dialog: Escape/backdrop to close, focus moved into the panel,
  * simple Tab trap, focus restored to the trigger on close.
+ * Animates in AND out; reduced-motion users get instant show/hide instead
+ * (the global reduced-motion rule zeroes the transition durations).
  */
 export function Modal({ open, onClose, title, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   const titleId = useId()
+  const exitTimer = useRef<number | null>(null)
+  const [rendered, setRendered] = useState(open)
+  const [shown, setShown] = useState(false)
+
   useEffect(() => {
     onCloseRef.current = onClose
   }, [onClose])
 
+  // Mount/unmount lifecycle with an exit window for the closing animation.
   useEffect(() => {
-    if (!open) return
+    if (open) {
+      if (exitTimer.current !== null) {
+        clearTimeout(exitTimer.current)
+        exitTimer.current = null
+      }
+      setRendered(true)
+      return
+    }
+    setShown(false)
+    exitTimer.current = window.setTimeout(() => setRendered(false), EXIT_MS)
+    return () => {
+      if (exitTimer.current !== null) {
+        clearTimeout(exitTimer.current)
+        exitTimer.current = null
+      }
+    }
+  }, [open])
+
+  // Enter transition + focus management + keyboard handling.
+  useEffect(() => {
+    if (!rendered || !open) return
+
+    const raf = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setShown(true)),
+    )
+
     const previouslyFocused = document.activeElement as HTMLElement | null
     document.body.style.overflow = 'hidden'
 
-    const firstField = panelRef.current?.querySelector<HTMLElement>('input, textarea, select')
+    const firstField = panelRef.current?.querySelector<HTMLElement>(
+      'input, textarea, select',
+    )
     ;(firstField ?? panelRef.current)?.focus()
 
     function onKeyDown(e: KeyboardEvent) {
@@ -56,13 +93,14 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
 
     document.addEventListener('keydown', onKeyDown)
     return () => {
+      cancelAnimationFrame(raf)
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = ''
       previouslyFocused?.focus()
     }
-  }, [open])
+  }, [rendered, open])
 
-  if (!open) return null
+  if (!rendered) return null
 
   return createPortal(
     <div
@@ -70,7 +108,9 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       role="presentation"
     >
       <div
-        className="absolute inset-0 bg-slate-900/50"
+        className={`absolute inset-0 bg-slate-900/50 transition-opacity duration-200 motion-reduce:transition-none ${
+          shown ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={() => onCloseRef.current()}
         aria-hidden="true"
       />
@@ -80,7 +120,11 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-lg outline-none"
+        className={`relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-5 shadow-lg outline-none transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+          shown
+            ? 'translate-y-0 scale-100 opacity-100'
+            : 'translate-y-4 scale-[0.97] opacity-0'
+        }`}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <h2 id={titleId} className="text-lg font-semibold text-slate-900">
@@ -90,7 +134,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             type="button"
             onClick={() => onCloseRef.current()}
             aria-label="Close dialog"
-            className="-mr-1 -mt-1 flex h-10 w-10 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            className="-mr-1 -mt-1 flex h-10 w-10 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 active:scale-90 motion-reduce:transition-none"
           >
             <XIcon size={18} />
           </button>
