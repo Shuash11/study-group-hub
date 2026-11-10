@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { signOut } from '../../services/auth'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { initials } from '../../lib/format'
 import { BookOpenIcon, HomeIcon, LogOutIcon, UserIcon, UsersIcon } from '../icons'
 
@@ -16,6 +17,7 @@ export function Navbar() {
   const { session, profile } = useAuth()
   const navigate = useNavigate()
   const [signingOut, setSigningOut] = useState(false)
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
 
   async function handleSignOut() {
     setSigningOut(true)
@@ -62,7 +64,7 @@ export function Navbar() {
             <>
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={() => setShowSignOutConfirm(true)}
                 disabled={signingOut}
                 aria-label="Sign out"
                 className="ml-1 flex min-h-[40px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-60 motion-reduce:transition-none"
@@ -88,6 +90,15 @@ export function Navbar() {
           )}
         </nav>
       </div>
+
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        title="Sign out?"
+        message="You'll need to sign in again to see your groups and sessions."
+        confirmLabel="Sign out"
+        onConfirm={handleSignOut}
+      />
     </header>
   )
 }

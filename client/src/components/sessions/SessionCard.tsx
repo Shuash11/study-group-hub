@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '../ui/Badge'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { MapPinIcon, TrashIcon } from '../icons'
+import { Modal } from '../ui/Modal'
+import { ChevronRightIcon, MapPinIcon, TrashIcon, UsersIcon } from '../icons'
 import { useAuth } from '../../context/AuthContext'
 import { deleteSession, listRsvps, setRsvp } from '../../services/sessions'
-import { formatDateTime, formatDuration, isUpcoming } from '../../lib/format'
-import type { RsvpStatus, RsvpWithProfile, SessionWithRsvp } from '../../lib/database.types'
+import { formatDateTime, formatDuration, initials, isUpcoming } from '../../lib/format'
+import type {
+  RsvpStatus,
+  RsvpWithProfile,
+  SessionWithRsvp,
+} from '../../lib/database.types'
 
 const RSVP_OPTIONS: Array<{ value: RsvpStatus; label: string; activeClass: string }> = [
   { value: 'going', label: 'Going', activeClass: 'bg-emerald-700 text-white border-emerald-700' },
@@ -17,7 +22,7 @@ const RSVP_OPTIONS: Array<{ value: RsvpStatus; label: string; activeClass: strin
   },
 ]
 
-/** One study session with RSVP toggles (and delete for its creator). */
+/** One study session with RSVP toggles, attendee chips, and an attendee panel. */
 export function SessionCard({
   session,
   onChanged,
@@ -29,6 +34,7 @@ export function SessionCard({
   const [rsvps, setRsvps] = useState<RsvpWithProfile[]>([])
   const [saving, setSaving] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
+  const [showAttendees, setShowAttendees] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const past = !isUpcoming(session.starts_at)
@@ -73,11 +79,12 @@ export function SessionCard({
     going: rsvps.filter((r) => r.status === 'going').length,
     maybe: rsvps.filter((r) => r.status === 'maybe').length,
   }
+  const attendeeChips = rsvps.filter(
+    (r) => r.status === 'going' || r.status === 'maybe',
+  )
 
   return (
-    <li
-      className={`rounded-lg border border-slate-200 bg-white p-4`}
-    >
+    <li className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -143,30 +150,56 @@ export function SessionCard({
         </span>
       </div>
 
-      {counts.going + counts.maybe > 0 && (
-        <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
-          {counts.going > 0 && (
-            <p className="text-xs text-slate-600">
-              <span className="font-medium text-emerald-700">
-                Going ({counts.going}):
-              </span>{' '}
-              {rsvps
-                .filter((r) => r.status === 'going')
-                .map((r) => r.profiles?.full_name || 'Someone')
-                .join(', ')}
-            </p>
-          )}
-          {counts.maybe > 0 && (
-            <p className="text-xs text-slate-600">
-              <span className="font-medium text-amber-700">Maybe ({counts.maybe}):</span>{' '}
-              {rsvps
-                .filter((r) => r.status === 'maybe')
-                .map((r) => r.profiles?.full_name || 'Someone')
-                .join(', ')}
-            </p>
-          )}
-        </div>
-      )}
+      {/* Attendee chips — click any chip (or the button) to open the full panel. */}
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        {attendeeChips.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {attendeeChips.map((r) => (
+              <button
+                key={r.user_id}
+                type="button"
+                onClick={() => setShowAttendees(true)}
+                aria-label={`${r.profiles?.full_name || 'Someone'} — ${r.status === 'going' ? 'going' : 'maybe'}. Open attendee list.`}
+                className="inline-flex min-h-[36px] items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 transition-colors hover:border-brand-300 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transition-none"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold ${
+                    r.status === 'going'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {initials(r.profiles?.full_name)}
+                </span>
+                <span className="max-w-[140px] truncate text-xs font-medium text-slate-700">
+                  {r.profiles?.full_name || 'Someone'}
+                </span>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowAttendees(true)}
+              className="ml-auto inline-flex min-h-[36px] items-center gap-1 rounded-lg px-2 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transition-none"
+            >
+              <UsersIcon size={15} />
+              View attendees
+              <ChevronRightIcon size={14} />
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            No RSVPs yet — responses will appear here as attendee profiles.
+          </p>
+        )}
+      </div>
+
+      <AttendeesPanel
+        open={showAttendees}
+        onClose={() => setShowAttendees(false)}
+        sessionTitle={session.title}
+        rsvps={rsvps}
+      />
 
       <ConfirmDialog
         open={showDelete}
@@ -178,5 +211,88 @@ export function SessionCard({
         onConfirm={handleDelete}
       />
     </li>
+  )
+}
+
+const PANEL_SECTIONS: Array<{
+  status: RsvpStatus
+  label: string
+  emptyText: string
+  badgeVariant: 'success' | 'warning' | 'neutral'
+  avatarClass: string
+}> = [
+  {
+    status: 'going',
+    label: 'Going',
+    emptyText: 'No one has confirmed yet.',
+    badgeVariant: 'success',
+    avatarClass: 'bg-emerald-100 text-emerald-800',
+  },
+  {
+    status: 'maybe',
+    label: 'Maybe',
+    emptyText: 'No maybes yet.',
+    badgeVariant: 'warning',
+    avatarClass: 'bg-amber-100 text-amber-800',
+  },
+  {
+    status: 'not_going',
+    label: "Can't go",
+    emptyText: 'Nobody has declined.',
+    badgeVariant: 'neutral',
+    avatarClass: 'bg-slate-100 text-slate-700',
+  },
+]
+
+/** The "next panel": full per-status breakdown with attendee profile rows. */
+function AttendeesPanel({
+  open,
+  onClose,
+  sessionTitle,
+  rsvps,
+}: {
+  open: boolean
+  onClose: () => void
+  sessionTitle: string
+  rsvps: RsvpWithProfile[]
+}) {
+  return (
+    <Modal open={open} onClose={onClose} title={`Who's coming — ${sessionTitle}`}>
+      <div className="space-y-4">
+        {PANEL_SECTIONS.map((section) => {
+          const attendees = rsvps.filter((r) => r.status === section.status)
+          return (
+            <section key={section.status}>
+              <div className="mb-2 flex items-center gap-2">
+                <Badge variant={section.badgeVariant}>
+                  {section.label} ({attendees.length})
+                </Badge>
+              </div>
+              {attendees.length === 0 ? (
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                  {section.emptyText}
+                </p>
+              ) : (
+                <ul className="list-none space-y-2 p-0">
+                  {attendees.map((r) => (
+                    <li key={r.user_id} className="flex items-center gap-3">
+                      <span
+                        aria-hidden="true"
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${section.avatarClass}`}
+                      >
+                        {initials(r.profiles?.full_name)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">
+                        {r.profiles?.full_name || 'Someone'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )
+        })}
+      </div>
+    </Modal>
   )
 }
